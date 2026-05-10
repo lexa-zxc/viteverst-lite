@@ -1,0 +1,45 @@
+//=====================================================================//
+//========================= КНОПКИ =========================//
+//=====================================================================//
+
+.btn {
+  font-family: var(--font-family-base);
+  font-weight: 400;
+  font-size: 1.8rem;
+  line-height: 1.2;
+  padding: 0;
+  text-shadow: none;
+  text-transform: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent);
+  box-shadow: none;
+  letter-spacing: 0;
+  border-radius: 5.8rem;
+  border: 1px solid transparent;
+  @include tran;
+  cursor: pointer;
+  position: relative;
+  color: #fff;
+  padding-top: 0.1rem;
+  &:hover {
+    background: var(--color-accent-hover);
+    color: #fff;
+  }
+  @media (max-width: 767px) {
+    font-size: 16px;
+    height: 50px;
+    line-height: 1;
+    padding: 0;
+  }
+}
+
+.btn--stroke {
+  border-color: var(--color-accent);
+  background: transparent;
+  color: var(--color-text);
+  &:hover {
+    border-color: transparent;
+  }
+}

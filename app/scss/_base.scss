@@ -1,0 +1,161 @@
+//=================================================================//
+//========================= БАЗОВЫЕ СТИЛИ =========================//
+//=================================================================//
+
+// Глобальные стили уровня страницы: html/body, обёртки, контейнеры,
+// тегов (a, img, svg), утилит (.scroll-area, body.lock, [data-fullscreen]).
+//
+// Всё остальное — в профильных файлах:
+//   Типографика ........ _typography.scss
+//   Кнопки ............. _buttons.scss
+//   Формы .............. _forms.scss
+//   Анимации ........... _animations.scss
+//   Вендоры ............ _vendor-overrides.scss
+//   CSS vars / темы .... _variables.scss
+//   Шрифты ............. _fonts.scss
+
+//----------------------------------------------------------------
+// HTML / font-size (REM адаптивка без JS)
+//----------------------------------------------------------------
+
+html {
+  font-size: 10px; // 1rem = 10px
+  scroll-behavior: auto;
+}
+
+@media (min-width: 1930px) {
+  html { font-size: 12px; }
+}
+@media (max-width: 1700px) {
+  html { font-size: 9px; }
+}
+@media (max-width: 1430px) {
+  html { font-size: 8.6px; }
+}
+@media (max-width: 1320px) {
+  html { font-size: 8.4px; }
+}
+@media (max-width: 767px) {
+  html { font-size: 10px; }
+}
+
+//----------------------------------------------------------------
+// Body
+//----------------------------------------------------------------
+
+html,
+body {
+  height: 100%;
+  min-width: 320px;
+}
+
+body {
+  color: var(--color-text);
+  line-height: var(--line-height-base);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  background-color: var(--color-bg);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+  //text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// Блокировка скролла (используется в модалках / меню)
+body.lock {
+  overflow: hidden;
+  padding-right: 17px;
+  @media (max-width: 1100px) {
+    padding-right: 0;
+  }
+}
+
+.touch body.lock {
+  padding-right: 0;
+}
+
+//----------------------------------------------------------------
+// Layout: wrapper, main, container
+//----------------------------------------------------------------
+
+.wrapper {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0;
+  @include tran();
+  transition-duration: 1s;
+  @supports (overflow: clip) {
+    overflow: clip;
+  }
+  // Прижимаем footer
+  > main {
+    flex: 1 1 auto;
+    // @media (max-width:767px){
+    //    padding-top: 60px;
+    // }
+  }
+}
+
+.container {
+  // 1440px + боковые отступы
+  max-width: 152rem;
+  margin: 0 auto;
+  padding-left: 4rem;
+  padding-right: 4rem;
+  @media (max-width: 767px) {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+}
+
+// Полноэкранный блок (работает с классом .touch от fls.js и --vh)
+[data-fullscreen] {
+  min-height: 100vh;
+  .touch & {
+    min-height: calc(var(--vh, 1vh) * 100);
+    @media (max-width: 767px) {
+      transition: height 0.2s;
+    }
+  }
+}
+
+//----------------------------------------------------------------
+// Базовые теги
+//----------------------------------------------------------------
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+svg {
+  @include tran;
+}
+
+.svg-hidden {
+  display: none;
+}
+
+//----------------------------------------------------------------
+// Кастомный скроллбар (класс-миксин под .scroll-area)
+//----------------------------------------------------------------
+
+.scroll-area {
+  scrollbar-width: thin;
+  scrollbar-color: #d6d6d7 transparent;
+  &::-webkit-scrollbar {
+    width: 7px;
+  }
+  &::-webkit-scrollbar-track {
+    box-shadow: none;
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: #d6d6d7;
+    outline: none;
+  }
+}

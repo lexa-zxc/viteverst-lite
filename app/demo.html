@@ -1,0 +1,107 @@
+@@include('html/header.html',{"title":"Демо компонентов - ViteVerst"})
+
+<section class="container" style="padding-top: 6rem; padding-bottom: 6rem;">
+  <h1 class="h1 wow fadeInDown10">Демо компонентов</h1>
+  <p style="margin-top: 2rem; max-width: 64rem;">
+    Страница показывает базовые примитивы стартера:
+    заголовки, кнопки, формы, ссылки и WOW-анимации.
+    Собрано только из готовых классов сборки — без кастомного SCSS.
+  </p>
+
+  <!-- Заголовки -->
+  <section style="margin-top: 6rem;">
+    <h2 class="h2">Заголовки</h2>
+    <h1 class="h1" style="margin-top: 2rem;">H1. Основной заголовок</h1>
+    <h2 class="h2" style="margin-top: 2rem;">H2. Заголовок секции</h2>
+    <h3 class="h3" style="margin-top: 2rem;">H3. Подзаголовок</h3>
+  </section>
+
+  <!-- Кнопки -->
+  <section style="margin-top: 6rem;">
+    <h2 class="h2">Кнопки</h2>
+    <div style="margin-top: 2rem; display: flex; gap: 1.5rem; flex-wrap: wrap;">
+      <button type="button" class="btn" style="height: 5rem; padding: 0 3rem;">Основная</button>
+      <button type="button" class="btn btn--stroke" style="height: 5rem; padding: 0 3rem;">С обводкой</button>
+      <a href="#" class="btn" style="height: 5rem; padding: 0 3rem;">Кнопка-ссылка</a>
+    </div>
+  </section>
+
+  <!-- Формы -->
+  <section style="margin-top: 6rem;">
+    <h2 class="h2">Формы</h2>
+    <form style="margin-top: 2rem; display: grid; gap: 1.5rem; max-width: 48rem;">
+      <input type="text" class="input" placeholder="Ваше имя" style="height: 5rem;">
+      <input type="email" class="input" placeholder="email@example.com" style="height: 5rem;" required>
+      <textarea class="textarea" placeholder="Ваше сообщение" rows="5"></textarea>
+
+      <label class="checkbox" style="margin-top: 1rem;">
+        <input type="checkbox" class="checkbox__input" checked>
+        <span class="checkbox__box"></span>
+        <span class="checkbox__label">
+          Согласен с <a href="#" class="link">политикой конфиденциальности</a>
+        </span>
+      </label>
+
+      <button type="submit" class="btn" style="height: 5rem; margin-top: 1rem;">
+        Отправить
+      </button>
+    </form>
+  </section>
+
+  <!-- Чекбоксы -->
+  <section style="margin-top: 6rem;">
+    <h2 class="h2">Чекбоксы</h2>
+    <div style="margin-top: 2rem; display: grid; gap: 1rem;">
+      <label class="checkbox">
+        <input type="checkbox" class="checkbox__input">
+        <span class="checkbox__box"></span>
+        <span class="checkbox__label">Обычный чекбокс</span>
+      </label>
+
+      <label class="checkbox">
+        <input type="checkbox" class="checkbox__input" checked>
+        <span class="checkbox__box"></span>
+        <span class="checkbox__label">Отмеченный по умолчанию</span>
+      </label>
+
+      <label class="checkbox">
+        <input type="checkbox" class="checkbox__input" disabled>
+        <span class="checkbox__box"></span>
+        <span class="checkbox__label">Неактивный (disabled)</span>
+      </label>
+    </div>
+  </section>
+
+  <!-- Ссылки -->
+  <section style="margin-top: 6rem;">
+    <h2 class="h2">Ссылки</h2>
+    <p style="margin-top: 2rem;">
+      Обычная <a href="#">текстовая ссылка</a>,
+      и ссылка с анимированным подчёркиванием
+      <a href="#" class="link">.link</a>
+      (наведи курсор).
+    </p>
+  </section>
+
+  <!-- WOW-анимации -->
+  <section style="margin-top: 6rem;">
+    <h2 class="h2">WOW-анимации</h2>
+    <p style="margin-top: 2rem;">
+      Добавь класс <code>wow fadeInDown10</code> (или любое число 1&ndash;100)
+      и элемент плавно появится при скролле. На мобилке анимация отключается.
+    </p>
+    <div style="margin-top: 3rem; display: grid; gap: 1.5rem;">
+      <div class="wow fadeInUp10" data-wow-delay="0.0s">Появляется снизу (fadeInUp10)</div>
+      <div class="wow fadeInUp20" data-wow-delay="0.1s">Появляется снизу (fadeInUp20)</div>
+      <div class="wow fadeInDown10" data-wow-delay="0.2s">Появляется сверху (fadeInDown10)</div>
+      <div class="wow fadeInDown50" data-wow-delay="0.3s">Появляется сверху (fadeInDown50)</div>
+    </div>
+  </section>
+
+  <!-- Навигация -->
+  <section style="margin-top: 6rem;">
+    <a href="index.html" class="link">&larr; На главную</a>
+  </section>
+</section>
+
+@@include('html/footer.html')

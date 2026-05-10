@@ -1,0 +1,25 @@
+@use 'sass:math';
+
+// ───── Foundation ─────
+@import 'mixins';     // @function / @mixin
+@import 'variables';  // SCSS $-vars + :root {--vars}
+@import 'fonts';      // @font-face
+@import 'reset';      // нормализация
+
+// ───── Base ─────
+@import 'base';       // html/body, wrapper, container, scroll-area, rem-адаптивка, body.lock, [data-fullscreen]
+
+// ───── Components ─────
+@import 'typography';       // .h1/.h2/.h3, a, .link, ::selection
+@import 'buttons';          // .btn, .btn--stroke
+@import 'forms';            // input, .input, .textarea
+@import 'animations';       // keyframes + утилиты
+@import 'vendor-overrides'; // fancybox, swiper и т.п.
+
+// ───── Sections ─────
+@import 'header';
+@import 'footer';
+
+// ───── Pages ─────
+// При желании можно вынести каждую страницу в свой файл
+@import 'pages/*';

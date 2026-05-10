@@ -1,0 +1,86 @@
+//=====================================================================//
+//========================= ПЕРЕОПРЕДЕЛЕНИЯ ВЕНДОРНЫХ СТИЛЕЙ =========================//
+//=====================================================================//
+
+.swiper-wrapper {
+  @include tran;
+}
+
+// .fancybox-custom,
+// .fancybox-custom-video {
+//   .fancybox-slide--image {
+//   }
+//   .fancybox-button {
+//     background: #fff;
+//     color: #1f2229;
+//     border: 1px solid #dedede;
+//     border-radius: 50%;
+//     width: 5.6rem;
+//     height: 5.6rem;
+//     margin: 4rem;
+//     &:hover {
+//       color: #1f2229;
+//     }
+//     @media (max-width: 767px) {
+//       height: 4rem;
+//       width: 4rem;
+//       margin: 20px;
+//     }
+//   }
+//   .fancybox-infobar {
+//     display: none;
+//   }
+//   .fancybox-navigation .fancybox-button {
+//     @media (max-width: 767px) {
+//       top: calc(50% - 20px);
+//     }
+//   }
+//   .fancybox-navigation .fancybox-button--arrow_right,
+//   .fancybox-navigation .fancybox-button--arrow_left {
+//     padding: 0.5rem;
+//     background: #fff;
+//     color: #1f2229;
+//     border: 1px solid #dedede;
+//     border-radius: 50%;
+//     width: 5.6rem;
+//     height: 5.6rem;
+//     @media (max-width: 767px) {
+//       height: 4rem;
+//       width: 4rem;
+//     }
+//   }
+//   .fancybox-navigation .fancybox-button--arrow_right {
+//     right: calc(env(safe-area-inset-right) + 10rem);
+//     @media (max-width: 767px) {
+//       right: 0;
+//       right: env(safe-area-inset-left);
+//       display: none;
+//     }
+//   }
+//   .fancybox-navigation .fancybox-button--arrow_left {
+//     left: calc(env(safe-area-inset-right) + 10rem);
+//     @media (max-width: 767px) {
+//       left: 0;
+//       left: env(safe-area-inset-left);
+//       display: none;
+//     }
+//   }
+// }
+
+// .fancybox-custom-video .fancybox-slide {
+//   @media (max-width: 767px) {
+//     padding: 12px;
+//   }
+// }
+
+// .fancybox-custom.fancybox-is-open,
+// .fancybox-custom-video.fancybox-is-open {
+//   .fancybox-bg {
+//     background: #fff;
+//     opacity: 1;
+//   }
+
+//   .fancybox-slide--video .fancybox-content {
+//     background: #fff;
+//   }
+// }

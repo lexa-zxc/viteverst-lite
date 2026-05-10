@@ -1,0 +1,30 @@
+//=====================================================================//
+//======================= ПЕРЕМЕННЫЕ ПРОЕКТА =======================//
+//=====================================================================//
+
+// Все переменные живут как CSS Custom Properties — их можно переопределять
+// в рантайме (темы, JS, разные классы на body / html).
+
+:root {
+  //====== Цвета ======
+  --color-text: #1f2229;
+  --color-bg: #ffffff;
+  --color-border: #d6d6d7;
+  --color-accent: #714bf1;
+  // hover-оттенок. color-mix() — нативная CSS-функция (Chrome 111+, Safari 16.2+, FF 113+)
+  --color-accent-hover: color-mix(in srgb, var(--color-accent) 92%, white);
+
+  //====== Типографика ======
+  --font-family-base: Gilroy, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  --font-size-base: 1.8rem;
+  --line-height-base: 1.2;
+
+  //====== Z-индексы ======
+  --z-header: 1000;
+  --z-modal: 9999;
+
+  //====== Прочее ======
+  // 1vh + 1vw как единая "индексная" единица
+  // использование: width: calc(var(--indexSize) * 20);
+  --indexSize: calc(1vh + 1vw);
+}

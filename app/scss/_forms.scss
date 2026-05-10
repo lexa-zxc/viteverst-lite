@@ -1,0 +1,167 @@
+//=====================================================================//
+//========================= ФОРМЫ / ИНПУТЫ =========================//
+//=====================================================================//
+
+input,
+button,
+textarea {
+  font-family: var(--font-family-base);
+  font-size: inherit;
+  line-height: inherit;
+}
+
+input,
+textarea {
+  outline: none;
+  &:focus:required:invalid {
+    border-color: #d31543;
+  }
+  &:required:valid {
+    border-color: #bc9e7b;
+  }
+}
+
+input,
+textarea {
+  outline: none;
+  box-shadow: none;
+}
+
+button:focus {
+  outline: none;
+}
+
+/* clears the 'X' from Internet Explorer */
+input[type='search']::-ms-clear {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+input[type='search']::-ms-reveal {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* clears the 'X' from Chrome */
+input[type='search']::-webkit-search-decoration,
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-results-button,
+input[type='search']::-webkit-search-results-decoration {
+  display: none;
+}
+
+.input,
+.textarea {
+  font-family: var(--font-family-base);
+  font-weight: 400;
+  font-size: 1.8rem;
+  color: var(--color-text);
+  padding: 0 2.3rem;
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  text-align: left;
+  @include tran;
+  @media (max-width: 767px) {
+    font-size: 15px;
+    padding: 0 13px;
+    text-align: left;
+  }
+  &::placeholder {
+    color: #616161;
+    opacity: 1;
+    @include tran;
+  }
+  &:focus {
+    &::placeholder {
+      opacity: 0;
+    }
+  }
+}
+
+.textarea {
+  padding: 1.6rem 2.3rem;
+  resize: none;
+  @media (max-width: 767px) {
+    padding: 13px;
+  }
+}
+
+//=====================================================================//
+//========================= ЧЕКБОКС =========================//
+//=====================================================================//
+// Разметка:
+//   <label class="checkbox">
+//     <input class="checkbox__input" type="checkbox">
+//     <span class="checkbox__box"></span>
+//     <span class="checkbox__label">Текст</span>
+//   </label>
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  user-select: none;
+
+  &__input {
+    // Нативный input прячем, но оставляем доступным для клавиатуры и скринридеров
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &__box {
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.4rem;
+    background: var(--color-bg);
+    position: relative;
+    @include tran;
+
+    // Галочка рисуется двумя бордерами повёрнутого блока — без внешнего SVG
+    &::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 45%;
+      width: 0.5rem;
+      height: 1rem;
+      border-right: 2px solid var(--color-bg);
+      border-bottom: 2px solid var(--color-bg);
+      transform: translate(-50%, -50%) rotate(45deg);
+      opacity: 0;
+      @include tran;
+    }
+  }
+
+  &__label {
+    font-size: 1.6rem;
+    line-height: 1.3;
+  }
+
+  // Состояния
+  &__input:checked ~ &__box {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    &::after {
+      opacity: 1;
+    }
+  }
+
+  &__input:focus-visible ~ &__box {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  &:hover &__box {
+    border-color: var(--color-accent);
+  }
+}

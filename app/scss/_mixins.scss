@@ -1,0 +1,36 @@
+@function strip-unit($number) {
+  @if type-of($number) == 'number' and not unitless($number) {
+    @return math.div($number, $number * 0 + 1);
+  }
+  @return $number;
+}
+
+@mixin tran {
+  transition: all cubic-bezier(0.39, 0.575, 0.565, 1) 0.45s;
+}
+
+@mixin ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+// Подключение шрифта
+@mixin font($font_name, $file_name, $weight, $style) {
+  @font-face {
+    font-family: $font_name;
+    src: url('../fonts/#{$file_name}.woff2') format('woff2');
+    // url('../fonts/#{$file_name}.woff') format('woff');
+    font-weight: #{$weight};
+    font-style: #{$style};
+  }
+}
+
+@mixin fontTTF($font_name, $file_name, $weight, $style) {
+  @font-face {
+    font-family: $font_name;
+    src: url('../fonts/#{$file_name}.ttf') format('truetype');
+    font-weight: #{$weight};
+    font-style: #{$style};
+  }
+}
