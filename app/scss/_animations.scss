@@ -2,43 +2,83 @@
 //========================= АНИМАЦИИ =========================//
 //=====================================================================//
 
-@for $i from 1 through 100 {
-  @keyframes fadeInDown#{$i} {
-    from {
-      opacity: 0;
-      -webkit-transform: translate3d(0, calc(-1% * #{$i}), 0);
-      transform: translate3d(0, calc(-1% * #{$i}), 0);
+//----------------------------------------------------------------
+// Активные анимации появления
+//----------------------------------------------------------------
+// Шаг 5% от 5 до 100. Итого 20 keyframes на каждое направление
+// (для 99% случаев хватает — используйте fadeInUp10/20/30/50 и т.д.)
+// Если нужны промежуточные значения — увеличьте step до 1
+
+@for $i from 5 through 100 {
+  @if $i % 5 == 0 {
+    @keyframes fadeInDown#{$i} {
+      from {
+        opacity: 0;
+        transform: translate3d(0, calc(-1% * #{$i}), 0);
+      }
+      to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+      }
     }
-    to {
-      opacity: 1;
-      -webkit-transform: translate3d(0, 0, 0);
-      transform: translate3d(0, 0, 0);
+    .fadeInDown#{$i} {
+      animation-name: fadeInDown#{$i};
     }
-  }
-  .fadeInDown#{$i} {
-    -webkit-animation-name: fadeInDown#{$i};
-    animation-name: fadeInDown#{$i};
+
+    @keyframes fadeInUp#{$i} {
+      from {
+        opacity: 0;
+        transform: translate3d(0, calc(1% * #{$i}), 0);
+      }
+      to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+      }
+    }
+    .fadeInUp#{$i} {
+      animation-name: fadeInUp#{$i};
+    }
   }
 }
 
-@for $i from 1 through 100 {
-  @keyframes fadeInUp#{$i} {
-    from {
-      opacity: 0;
-      -webkit-transform: translate3d(0, calc(1% * #{$i}), 0);
-      transform: translate3d(0, calc(1% * #{$i}), 0);
-    }
-    to {
-      opacity: 1;
-      -webkit-transform: translate3d(0, 0, 0);
-      transform: translate3d(0, 0, 0);
-    }
-  }
-  .fadeInUp#{$i} {
-    -webkit-animation-name: fadeInUp#{$i};
-    animation-name: fadeInUp#{$i};
-  }
-}
+
+// @for $i from 1 through 100 {
+//   @keyframes fadeInDown#{$i} {
+//     from {
+//       opacity: 0;
+//       -webkit-transform: translate3d(0, calc(-1% * #{$i}), 0);
+//       transform: translate3d(0, calc(-1% * #{$i}), 0);
+//     }
+//     to {
+//       opacity: 1;
+//       -webkit-transform: translate3d(0, 0, 0);
+//       transform: translate3d(0, 0, 0);
+//     }
+//   }
+//   .fadeInDown#{$i} {
+//     -webkit-animation-name: fadeInDown#{$i};
+//     animation-name: fadeInDown#{$i};
+//   }
+// }
+
+// @for $i from 1 through 100 {
+//   @keyframes fadeInUp#{$i} {
+//     from {
+//       opacity: 0;
+//       -webkit-transform: translate3d(0, calc(1% * #{$i}), 0);
+//       transform: translate3d(0, calc(1% * #{$i}), 0);
+//     }
+//     to {
+//       opacity: 1;
+//       -webkit-transform: translate3d(0, 0, 0);
+//       transform: translate3d(0, 0, 0);
+//     }
+//   }
+//   .fadeInUp#{$i} {
+//     -webkit-animation-name: fadeInUp#{$i};
+//     animation-name: fadeInUp#{$i};
+//   }
+// }
 
 // @keyframes rotation {
 //   0% {
