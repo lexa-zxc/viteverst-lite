@@ -1,12 +1,13 @@
 import fs from 'fs';
 import { join } from 'path';
-import { PATHS } from '../config/paths.js';
-import { SCSS_ALIASES } from '../config/paths.js';
+import { PATHS, SCSS_ALIASES } from '../config/paths.js';
 import { CONSOLE_COLORS } from '../config/constants.js';
+import { resolveScssAliases, normalizeCssAssetUrls } from '../utils/css-transform.js';
 
 /**
- * Плагин для создания точки входа для SCSS
- * @returns {Object} Vite плагин
+ * Плагин для создания точки входа для SCSS.
+ * Подсовывает main.scss как отдельный chunk в build-mode.
+ * @returns {import('vite').Plugin}
  */
 export function scssEntryPlugin() {
   return {
@@ -26,118 +27,68 @@ export function scssEntryPlugin() {
       } catch (error) {
         console.error('Ошибка при создании точки входа для SCSS:', error);
       }
-    }
+    },
   };
 }
 
 /**
- * Плагин для обработки горячей перезагрузки при изменении HTML
- * @returns {Object} Vite плагин
+ * Полная перезагрузка страницы при изменении HTML-файлов.
+ * Vite по умолчанию не умеет HMR для шаблонов, собранных через @@include.
+ * @returns {import('vite').Plugin}
  */
 export function htmlReloadPlugin() {
   return {
     name: 'html-reload',
     handleHotUpdate({ file, server }) {
       if (file.endsWith('.html')) {
-        server.ws.send({
-          type: 'full-reload',
-          path: '*',
-        });
+        server.ws.send({ type: 'full-reload', path: '*' });
         return [];
       }
-    }
+    },
   };
 }
 
 /**
- * Плагин для обработки алиасов в SCSS файлах
- * @returns {Object} Vite плагин
+ * Разворачивает SCSS-алиасы (@img, @vendor, ...) в коде стилей.
+ * Работает на двух стадиях:
+ *   - transform()       — на каждом .scss/.sass/.css модуле (pre-compile)
+ *   - generateBundle()  — на финальном CSS (пост-компиляция)
+ *
+ * Вся логика преобразований вынесена в utils/css-transform.js
+ * @returns {import('vite').Plugin}
  */
 export function scssAliasPlugin() {
   return {
     name: 'scss-alias-plugin',
+
     transform(code, id) {
-      if (id.endsWith('.scss') || id.endsWith('.sass') || id.endsWith('.css')) {
-        // Заменяем все алиасы в SCSS и CSS файлах
-        let result = code;
-
-        Object.entries(SCSS_ALIASES).forEach(([alias, path]) => {
-          // Поддержка @import "алиас/путь" и @use "алиас/путь"
-          const importRegex = new RegExp(`(@import|@use|@forward)\\s+["'](${alias.replace('@', '')}/[^"']+)["']`, 'g');
-          result = result.replace(importRegex, (match, directive, importPath) => {
-            return `${directive} "${path}/${importPath.replace(`${alias.replace('@', '')}/`, '')}"`;
-          });
-
-          // Поддержка url(алиас/путь)
-          const urlRegex = new RegExp(`url\\(["'](${alias.replace('@', '')}/[^"')]+)["']\\)`, 'g');
-          result = result.replace(urlRegex, (match, url) => {
-            return `url("${path}/${url.replace(`${alias.replace('@', '')}/`, '')}")`;
-          });
-
-          // Поддержка url(алиас/путь) без кавычек
-          const urlNoQuotesRegex = new RegExp(`url\\((${alias.replace('@', '')}/[^)]+)\\)`, 'g');
-          result = result.replace(urlNoQuotesRegex, (match, url) => {
-            return `url(${path}/${url.replace(`${alias.replace('@', '')}/`, '')})`;
-          });
-
-          // Поддержка прямых упоминаний @алиас/путь в любом контексте
-          const fullAliasRegex = new RegExp(`(['"])${alias}\/([^'"]+)(['"])`, 'g');
-          result = result.replace(fullAliasRegex, (match, quote1, filePath, quote2) => {
-            return `${quote1}${path}/${filePath}${quote2}`;
-          });
-        });
-
-        return { code: result, map: null };
-      }
+      if (!id.match(/\.(scss|sass|css)$/)) return;
+      return { code: resolveScssAliases(code, SCSS_ALIASES), map: null };
     },
 
-    // Добавляем постобработку CSS
-    async generateBundle(outputOptions, bundle) {
-      // Обрабатываем собранные CSS файлы
-      Object.keys(bundle).forEach(key => {
+    generateBundle(_, bundle) {
+      for (const key of Object.keys(bundle)) {
+        if (!key.endsWith('.css')) continue;
         const asset = bundle[key];
-        if (key.endsWith('.css')) {
-          let code = asset.source;
-
-          // Исправляем пути в CSS
-          // Заменяем абсолютные пути на относительные
-          code = code.replace(/url\(['"]?\/fonts\/([^'")]+)['"]?\)/g, 'url("../fonts/$1")');
-          code = code.replace(/url\(['"]?\/img\/([^'")]+)['"]?\)/g, 'url("../img/$1")');
-          code = code.replace(/url\(['"]?\/scss\/([^'")]+)['"]?\)/g, 'url("../scss/$1")');
-          code = code.replace(/url\(['"]?\/css\/([^'")]+)['"]?\)/g, 'url("../css/$1")');
-          code = code.replace(/url\(['"]?\/vendor\/([^'")]+)['"]?\)/g, 'url("../vendor/$1")');
-          code = code.replace(/url\(['"]?\/files\/([^'")]+)['"]?\)/g, 'url("../files/$1")');
-
-          // Дополнительно заменяем пути без начального слэша (для совместимости)
-          Object.entries(SCSS_ALIASES).forEach(([alias, path]) => {
-            const folderName = alias.replace('@', '');
-            const urlRegex = new RegExp(`url\\(['"]?${folderName}\/([^'")]+)['"]?\\)`, 'g');
-            code = code.replace(urlRegex, `url("${path}/$1")`);
-          });
-
-          asset.source = code;
-        }
-      });
-    }
+        asset.source = normalizeCssAssetUrls(asset.source, SCSS_ALIASES);
+      }
+    },
   };
 }
-
 
 /**
  * Плагин для активации новых SCSS-файлов на dev-сервере.
  *
- * Зачем: `main.scss` содержит glob-импорт `@import 'pages/*'`, который
+ * Зачем: main.scss содержит glob-импорт `@import 'pages/*'`, который
  * резолвится vite-plugin-sass-glob-import ОДИН РАЗ на transform-стадии.
  * Когда пользователь создаёт новый .scss в pages/ — glob его не видит,
  * пока main.scss не будет пересобран.
  *
  * Решение:
- *   1. Когда watcher замечает новый .scss/.sass — находим все модули main.scss
- *      в moduleGraph (их может быть несколько: виртуальные, с query, и т.п.)
- *      и инвалидируем каждый.
- *   2. На всякий случай эмулируем 'change' событие на main.scss через
- *      server.watcher.emit — Vite обработает его своей штатной логикой
- *      (без реальной записи в файл пользователя).
+ *   1. Когда watcher замечает новый .scss/.sass — инвалидируем модуль
+ *      main.scss в moduleGraph (забываем закешированный transform).
+ *   2. Эмулируем 'change' на main.scss через server.watcher.emit —
+ *      Vite обработает его штатной логикой без записи на диск.
  *   3. Отправляем full-reload браузеру.
  *
  * @returns {import('vite').Plugin}
@@ -160,11 +111,10 @@ export function scssFileWatcherPlugin() {
           }
         }
 
-        // 2. Эмулируем изменение main.scss — Vite пересоберёт SCSS через
-        //    штатный pipeline (glob-import-plugin подхватит новый файл)
+        // 2. Эмулируем change — Vite пересобирает через штатный pipeline
         server.watcher.emit('change', mainScssPath);
 
-        // 3. Перезагрузка страницы для применения нового CSS
+        // 3. Перезагрузка страницы
         server.ws.send({ type: 'full-reload', path: '*' });
 
         console.log(

@@ -1,17 +1,26 @@
 import fs from 'fs';
 import { resolve, join } from 'path';
-import { PATHS } from '../config/paths.js';
+import { PATHS, SCSS_ALIASES } from '../config/paths.js';
 import { transformBuildHtml } from '../utils/html-transform.js';
+import { normalizeCssAssetUrls } from '../utils/css-transform.js';
 import { CONSOLE_COLORS } from '../config/constants.js';
 
 /**
- * Плагин для исправления путей к шрифтам в CSS.
- * Работает с готовым CSS-файлом (не HTML), поэтому regex здесь уместен.
+ * Пост-обработка финального CSS: нормализация путей к ассетам.
+ *
+ * На этой стадии Vite мог оставить в CSS абсолютные пути (`url(/fonts/...)`),
+ * которые не работают в статическом dist. Прогоняем их через нашу утилиту
+ * normalizeCssAssetUrls — она превращает их в относительные `url("../fonts/...")`.
+ *
+ * Это страховка: основная логика работает на стадии generateBundle в scssAliasPlugin,
+ * но здесь мы перечитываем CSS с диска на случай если какой-то плагин его изменил
+ * после generateBundle (например, postcss-оптимизаторы).
+ *
  * @returns {import('vite').Plugin}
  */
-export function fixFontPathsPlugin() {
+export function normalizeCssPathsPlugin() {
   return {
-    name: 'fix-font-paths',
+    name: 'normalize-css-paths',
     apply: 'build',
     closeBundle: async () => {
       try {
@@ -22,27 +31,29 @@ export function fixFontPathsPlugin() {
           .filter((file) => file.endsWith('.css'))
           .forEach((cssFile) => {
             const cssPath = join(cssDir, cssFile);
-            let cssContent = fs.readFileSync(cssPath, 'utf-8');
-
-            cssContent = cssContent.replace(
-              /url\(['"]?\/fonts\/([^'")]+)['"]?\)/g,
-              'url("../fonts/$1")'
-            );
-
-            fs.writeFileSync(cssPath, cssContent);
+            const content = fs.readFileSync(cssPath, 'utf-8');
+            const normalized = normalizeCssAssetUrls(content, SCSS_ALIASES);
+            if (normalized !== content) {
+              fs.writeFileSync(cssPath, normalized);
+            }
           });
 
-        console.log(`${CONSOLE_COLORS.green}Пути к шрифтам исправлены${CONSOLE_COLORS.reset}`);
+        console.log(`${CONSOLE_COLORS.green}CSS-пути нормализованы${CONSOLE_COLORS.reset}`);
       } catch (error) {
-        console.error('Ошибка при исправлении путей к шрифтам:', error);
+        console.error('Ошибка при нормализации CSS-путей:', error);
       }
     },
   };
 }
 
 /**
- * Плагин для обработки HTML файлов (удаление лишних атрибутов, подмена путей).
- * Работает на AST — не использует regex для парсинга HTML.
+ * Пост-обработка HTML в dist/:
+ *   - удаляет crossorigin, type="module"
+ *   - подменяет script/link на фиксированные пути (js/app.js, css/app.css)
+ *   - убирает префикс ./ из src/href
+ *   - убирает ведущий / (абсолютные пути → относительные)
+ *
+ * Работает на AST через node-html-parser — вся логика в utils/html-transform.js
  * @returns {import('vite').Plugin}
  */
 export function processHtmlPlugin() {
@@ -71,38 +82,10 @@ export function processHtmlPlugin() {
 }
 
 /**
- * Плагин для финальной нормализации путей в HTML (удаление `./`).
- * Работает на AST.
- * @returns {import('vite').Plugin}
- */
-export function fixAssetsPathsPlugin() {
-  return {
-    name: 'fix-assets-paths',
-    apply: 'build',
-    closeBundle: async () => {
-      try {
-        fs.readdirSync(PATHS.dist)
-          .filter((file) => file.endsWith('.html'))
-          .forEach((htmlFile) => {
-            const htmlPath = resolve(PATHS.dist, htmlFile);
-            const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
-
-            // transformBuildHtml уже убирает ./, но на случай если кто-то
-            // встроит сюда свой плагин между ним и этим — прогоняем ещё раз
-            const result = transformBuildHtml(htmlContent);
-            fs.writeFileSync(htmlPath, result);
-          });
-
-        console.log(`${CONSOLE_COLORS.green}Пути к ресурсам исправлены (удалены префиксы ./)${CONSOLE_COLORS.reset}`);
-      } catch (error) {
-        console.error('Ошибка при исправлении путей к ресурсам:', error);
-      }
-    },
-  };
-}
-
-/**
- * Плагин для переименования хешированных JS-чанков в app.js.
+ * Переименовывает хешированные JS-чанки (app4.js, app5.js, ...) в app.js.
+ * Нужен потому что Vite добавляет хеш-суффикс к чанкам чтобы избежать коллизий
+ * с HTML-файлами с теми же именами.
+ *
  * @returns {import('vite').Plugin}
  */
 export function renameJsPlugin() {

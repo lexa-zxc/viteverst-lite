@@ -3,9 +3,8 @@ import { fileIncludePlugin } from './file-include-plugin.js';
 import { htmlAliasPlugin } from './html-alias-plugin.js';
 import { copyResourcesPlugin } from './copy-resources-plugin.js';
 import {
-  fixFontPathsPlugin,
+  normalizeCssPathsPlugin,
   processHtmlPlugin,
-  fixAssetsPathsPlugin,
   renameJsPlugin
 } from './html-processing-plugins.js';
 import {
@@ -52,10 +51,9 @@ export function getResourcePlugins() {
  */
 export function getPostProcessPlugins() {
   return [
-    fixFontPathsPlugin(),
-    processHtmlPlugin(),
-    fixAssetsPathsPlugin(),
-    renameJsPlugin()
+    normalizeCssPathsPlugin(),
+    renameJsPlugin(),
+    processHtmlPlugin(), // должен идти последним — HTML зависит от финальных имён файлов
   ];
 }
 
