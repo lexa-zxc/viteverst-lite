@@ -15,42 +15,56 @@
  *   breakpoint  число px (по умолчанию 767)
  *   place       'first' | 'last' | индекс (по умолчанию 'last')
  *
- * API (доступно через window.dynamicAdapt):
+ * API (window.DynamicAdaptManager):
  *
- *   .init()     — первичная инициализация (вызывается автоматически)
- *   .update()   — пересканировать DOM (после AJAX / динамического добавления элементов)
- *   .destroy()  — вернуть все элементы на место, убрать слушатели, очистить состояние
- *   .reset()    — вернуть все элементы на место, но оставить слушатели (для ручного перезапуска)
+ *   .init(container)     — инициализация (сканирует container, по умолчанию document)
+ *   .update(container)   — пересканировать DOM (после AJAX / динамического добавления)
+ *   .destroy()           — вернуть все элементы, убрать слушатели, очистить состояние
+ *   .reset()             — вернуть все элементы, но оставить слушатели активными
  *
  * Подключение:
  *   <script src="@vendor/fls/dynamic-adapt.js"></script>
  *
  * Использование из JS:
- *   window.dynamicAdapt.update();   // после подгрузки новых карточек
- *   window.dynamicAdapt.destroy();  // полная деактивация
+ *   DynamicAdaptManager.update();           // после подгрузки карточек
+ *   DynamicAdaptManager.destroy();          // полная деактивация
+ *   DynamicAdaptManager.init(modalElement); // инициализация внутри конкретного контейнера
+ * 
+ *   DynamicAdaptManager.update('.container');          // строка-селектор
+     DynamicAdaptManager.update(document.querySelector('.modal')); // DOM-элемент
+     DynamicAdaptManager.update();                      // весь document
  */
 
-class DynamicAdapt {
-  constructor(type = 'max') {
-    this.type = type;
-    this.daClassname = '_dynamic_adapt_';
-    this.objects = [];
-    this.mediaListeners = []; // для корректного destroy
-    this.initialized = false;
-  }
+const DynamicAdaptManager = {
+  type: 'max',
+  daClassname: '_dynamic_adapt_',
+  objects: [],
+  mediaListeners: [],
+  initialized: false,
 
-  /**
-   * Первичная инициализация — сканирует DOM, создаёт matchMedia-слушатели.
-   * Безопасно вызывать повторно (сначала сделает destroy).
-   */
-  init() {
+  // Инициализация — сканирует container на [data-da], создаёт matchMedia-слушатели
+  init: function (container = document) {
+    // Если уже инициализирован — сначала чистим
     if (this.initialized) this.destroy();
+
+    // Принимаем и строку-селектор, и DOM-элемент
+    if (typeof container === 'string') {
+      container = document.querySelector(container) || document;
+    }
 
     this.objects = [];
     this.mediaListeners = [];
-    this.nodes = [...document.querySelectorAll('[data-da]')];
 
-    this.nodes.forEach((node) => {
+    const nodes = [...container.querySelectorAll('[data-da]')];
+
+    // Перед сканированием — убедимся что все элементы на оригинальных местах
+    nodes.forEach((node) => {
+      if (node.classList.contains(this.daClassname)) {
+        node.classList.remove(this.daClassname);
+      }
+    });
+
+    nodes.forEach((node) => {
       const params = node.dataset.da.split(',').map((s) => s.trim());
 
       let selector, breakpoint, place;
@@ -80,31 +94,26 @@ class DynamicAdapt {
         destination,
         breakpoint: breakpoint || '767',
         place: place || 'last',
-        index: this.indexInParent(node.parentNode, node),
+        index: this._indexInParent(node.parentNode, node),
       });
     });
 
-    this.arraySort(this.objects);
-    this.bindMedia();
+    this._sort(this.objects);
+    this._bindMedia();
     this.initialized = true;
-  }
+  },
 
-  /**
-   * Пересканировать DOM — подхватит новые [data-da] элементы.
-   * Старые элементы вернутся на место перед пересканированием.
-   */
-  update() {
-    this.init();
-  }
+  // Пересканировать DOM — подхватит новые [data-da] элементы
+  update: function (container = document) {
+    this.init(container);
+  },
 
-  /**
-   * Вернуть все элементы на место, убрать слушатели, очистить состояние.
-   */
-  destroy() {
-    // Вернуть все перемещённые элементы
-    this.resetPositions();
+  // Вернуть все элементы, убрать слушатели, очистить состояние
+  destroy: function () {
+    if (!this.initialized) return;
 
-    // Убрать слушатели matchMedia
+    this._resetPositions();
+
     this.mediaListeners.forEach(({ matchMedia, handler }) => {
       matchMedia.removeEventListener('change', handler);
     });
@@ -112,53 +121,48 @@ class DynamicAdapt {
     this.objects = [];
     this.mediaListeners = [];
     this.initialized = false;
-  }
+  },
 
-  /**
-   * Вернуть все элементы на место, но оставить слушатели активными.
-   * При следующем ресайзе элементы снова переедут если медиа-запрос совпадёт.
-   */
-  reset() {
-    this.resetPositions();
-  }
+  // Вернуть все элементы на место, но оставить слушатели (при ресайзе снова переедут)
+  reset: function () {
+    this._resetPositions();
+  },
 
   // ─── Приватные методы ───────────────────────────────────────────────
 
-  bindMedia() {
+  _bindMedia: function () {
     const seen = new Set();
 
     this.objects.forEach(({ breakpoint }) => {
       if (seen.has(breakpoint)) return;
       seen.add(breakpoint);
 
-      const mq = window.matchMedia(
-        `(${this.type}-width: ${breakpoint}px)`
-      );
+      const mq = window.matchMedia(`(${this.type}-width: ${breakpoint}px)`);
       const groupItems = this.objects.filter((o) => o.breakpoint === breakpoint);
 
-      const handler = () => this.mediaHandler(mq, groupItems);
+      const handler = () => this._mediaHandler(mq, groupItems);
 
       mq.addEventListener('change', handler);
       this.mediaListeners.push({ matchMedia: mq, handler });
 
       // Применить текущее состояние сразу
-      this.mediaHandler(mq, groupItems);
+      this._mediaHandler(mq, groupItems);
     });
-  }
+  },
 
-  mediaHandler(matchMedia, objects) {
+  _mediaHandler: function (matchMedia, objects) {
     if (matchMedia.matches) {
-      objects.forEach((o) => this.moveTo(o.place, o.element, o.destination));
+      objects.forEach((o) => this._moveTo(o.place, o.element, o.destination));
     } else {
       objects.forEach(({ parent, element, index }) => {
         if (element.classList.contains(this.daClassname)) {
-          this.moveBack(parent, element, index);
+          this._moveBack(parent, element, index);
         }
       });
     }
-  }
+  },
 
-  moveTo(place, element, destination) {
+  _moveTo: function (place, element, destination) {
     element.classList.add(this.daClassname);
 
     if (place === 'first') {
@@ -176,30 +180,34 @@ class DynamicAdapt {
       return;
     }
     destination.children[idx].before(element);
-  }
+  },
 
-  moveBack(parent, element, index) {
+  _moveBack: function (parent, element, index) {
     element.classList.remove(this.daClassname);
+
+    // Временно убираем элемент, чтобы индексы детей стали как в оригинале
+    element.remove();
+
     if (parent.children[index] !== undefined) {
       parent.children[index].before(element);
     } else {
       parent.append(element);
     }
-  }
+  },
 
-  resetPositions() {
+  _resetPositions: function () {
     [...this.objects].reverse().forEach(({ parent, element, index }) => {
       if (element.classList.contains(this.daClassname)) {
-        this.moveBack(parent, element, index);
+        this._moveBack(parent, element, index);
       }
     });
-  }
+  },
 
-  indexInParent(parent, element) {
+  _indexInParent: function (parent, element) {
     return [...parent.children].indexOf(element);
-  }
+  },
 
-  arraySort(arr) {
+  _sort: function (arr) {
     const asc = this.type === 'min';
     arr.sort((a, b) => {
       if (a.breakpoint === b.breakpoint) {
@@ -212,9 +220,11 @@ class DynamicAdapt {
         ? Number(a.breakpoint) - Number(b.breakpoint)
         : Number(b.breakpoint) - Number(a.breakpoint);
     });
-  }
-}
+  },
+};
 
-// Автоинициализация + экспорт в window
-window.dynamicAdapt = new DynamicAdapt('max');
-window.dynamicAdapt.init();
+// Автоинициализация
+DynamicAdaptManager.init();
+
+// Экспорт в глобальную область
+window.DynamicAdaptManager = DynamicAdaptManager;

@@ -1,0 +1,80 @@
+@@include('html/header.html',{"title":"Демо DynamicAdapt - ViteVerst"})
+
+<section class="container" style="padding-top: 6rem; padding-bottom: 6rem;">
+
+  <h1 class="h1">DynamicAdapt — каталог iPhone</h1>
+  <p style="margin-top: 2rem; max-width: 70rem;">
+    4 одинаковые карточки. На десктопе порядок:
+    <b>фото → заголовок → описание → цена → кнопка</b>.<br>
+    На мобилке (≤ 767px) кнопка переезжает сразу <b>после фотографии</b>
+    — внутри СВОЕЙ карточки, а не первой на странице.
+  </p>
+  <p style="margin-top: 1rem; max-width: 70rem; color: #666;">
+    Магия в короткой форме <code>data-da="767, 1"</code> — destination = parentNode,
+    каждая кнопка двигается в своей карточке.
+  </p>
+
+  <div style="margin-top: 4rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(28rem, 1fr)); gap: 2rem;">
+
+    <!-- Карточка 1 -->
+    <div style="padding: 2rem; border: 1px solid var(--color-border); border-radius: 1rem; display: grid; gap: 1.5rem;">
+      <div style="aspect-ratio: 4/3; background: var(--color-border); border-radius: 0.8rem; display: flex; align-items: center; justify-content: center; color: #fff;">
+        [фото iPhone 17 Pro Max]
+      </div>
+      <h3 class="h3">iPhone 17 Pro Max</h3>
+      <p>256 ГБ · Titanium Black · Камера 200 МП · A19 Pro. Флагман с лучшей автономностью.</p>
+      <div style="font-size: 2.4rem; font-weight: 700; color: var(--color-accent);">149 900 ₽</div>
+      <button type="button" class="btn" data-da="767, 1" style="height: 5rem; padding: 0 3rem;">
+        Заказать
+      </button>
+    </div>
+
+    <!-- Карточка 2 -->
+    <div style="padding: 2rem; border: 1px solid var(--color-border); border-radius: 1rem; display: grid; gap: 1.5rem;">
+      <div style="aspect-ratio: 4/3; background: var(--color-border); border-radius: 0.8rem; display: flex; align-items: center; justify-content: center; color: #fff;">
+        [фото iPhone 17 Pro]
+      </div>
+      <h3 class="h3">iPhone 17 Pro</h3>
+      <p>256 ГБ · Deep Blue · Камера 200 МП · A19 Pro. Компактный флагман 6,3".</p>
+      <div style="font-size: 2.4rem; font-weight: 700; color: var(--color-accent);">129 900 ₽</div>
+      <button type="button" class="btn" data-da="767, 1" style="height: 5rem; padding: 0 3rem;">
+        Заказать
+      </button>
+    </div>
+
+    <!-- Карточка 3 -->
+    <div style="padding: 2rem; border: 1px solid var(--color-border); border-radius: 1rem; display: grid; gap: 1.5rem;">
+      <div style="aspect-ratio: 4/3; background: var(--color-border); border-radius: 0.8rem; display: flex; align-items: center; justify-content: center; color: #fff;">
+        [фото iPhone 17 Plus]
+      </div>
+      <h3 class="h3">iPhone 17 Plus</h3>
+      <p>128 ГБ · Silver · Камера 48 МП · A19. Большой экран 6,7" и батарея на весь день.</p>
+      <div style="font-size: 2.4rem; font-weight: 700; color: var(--color-accent);">99 900 ₽</div>
+      <button type="button" class="btn" data-da="767, 1" style="height: 5rem; padding: 0 3rem;">
+        Заказать
+      </button>
+    </div>
+
+    <!-- Карточка 4 -->
+    <div style="padding: 2rem; border: 1px solid var(--color-border); border-radius: 1rem; display: grid; gap: 1.5rem;">
+      <div style="aspect-ratio: 4/3; background: var(--color-border); border-radius: 0.8rem; display: flex; align-items: center; justify-content: center; color: #fff;">
+        [фото iPhone 17]
+      </div>
+      <h3 class="h3">iPhone 17</h3>
+      <p>128 ГБ · Starlight · Камера 48 МП · A19. Базовая модель 2025 года.</p>
+      <div style="font-size: 2.4rem; font-weight: 700; color: var(--color-accent);">79 900 ₽</div>
+      <button type="button" class="btn" data-da="767, 1" style="height: 5rem; padding: 0 3rem;">
+        Заказать
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Навигация -->
+  <section style="margin-top: 6rem;">
+    <a href="index.html" class="link">&larr; На главную</a>
+  </section>
+
+</section>
+
+@@include('html/footer.html')
