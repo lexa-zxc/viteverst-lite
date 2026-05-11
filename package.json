@@ -1,8 +1,8 @@
 {
-  "name": "viteverst",
+  "name": "viteverst-lite",
   "private": true,
   "version": "0.1.0",
-  "description": "🚀 Ультимативная сборка для верстки на Vite с поддержкой @@include и оптимизацией ресурсов",
+  "description": "⚡ Lite-версия ViteVerst — облегчённая сборка для верстки на Vite. @@include, слоты, SCSS, CSS-переменные, мультистраничность.",
   "type": "module",
   "scripts": {
     "dev": "vite --open --host",
@@ -14,19 +14,20 @@
   },
   "keywords": [
     "vite",
+    "vite-lite",
+    "viteverst",
     "html",
     "file-include",
     "html-include",
+    "html-slots",
     "frontend",
     "static-site",
     "multi-page",
     "scss",
-    "optimization",
-    "vite-plugin",
-    "image-optimization",
+    "css-variables",
     "boilerplate",
+    "starter",
     "template",
-    "vite-config",
     "markup",
     "web-dev"
   ],
@@ -39,7 +40,7 @@
   "bugs": {
     "url": "https://github.com/lexa-zxc/viteverst/issues"
   },
-  "homepage": "https://github.com/lexa-zxc/viteverst",
+  "homepage": "https://github.com/lexa-zxc/viteverst#readme",
   "devDependencies": {
     "autoprefixer": "10.4.21",
     "imagemin": "8.0.1",
