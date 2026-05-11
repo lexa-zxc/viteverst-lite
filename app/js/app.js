@@ -1,34 +1,23 @@
 document.addEventListener('DOMContentLoaded', () => {
   //======== Константы проекта =========//
-  const device_width = window.innerWidth;
   const gsap_ease = 'power4.out';
-  const isMobile = device_width <= 767;
 
-  //======== Анимация wrapper при загрузке страницы =========//
-  gsap.to('.wrapper', {
-    opacity: 1,
-    duration: 1.2,
-    ease: gsap_ease,
-    delay: 0,
-  });
-
-  //======== Убираем анимацию wrapper при ресайзе =========//
-  $(window).resize(function () {
-    if (device_width > 1100) {
-      $('.wrapper').css('opacity', '1');
-    }
-  });
+  //======== Актуальная ширина устройства =========//
+  const getWidth  = () => window.innerWidth;
+  const isMobile  = () => getWidth() <= 767;
+  const isTablet  = () => getWidth() > 767 && getWidth() <= 1024;
+  const isDesktop = () => getWidth() > 1024;
 
   //======== Прокрутка к якорю =========//
   new SmoothScroll('a[href*="#"]', {
     speed: 1000,
     updateURL: false,
     speedAsDuration: true,
-    offset: isMobile ? 54 : 0,
+    offset: () => (isMobile() ? 54 : 0),
   });
 
   //======== Анимашки WOW =========//
-  if (device_width > 1024) {
+  if (isDesktop()) {
     new WOW().init();
   }
 

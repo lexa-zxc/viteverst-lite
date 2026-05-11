@@ -23,21 +23,21 @@ html {
   scroll-behavior: auto;
 }
 
-@media (min-width: 1930px) {
-  html { font-size: 12px; }
-}
-@media (max-width: 1700px) {
-  html { font-size: 9px; }
-}
-@media (max-width: 1430px) {
-  html { font-size: 8.6px; }
-}
-@media (max-width: 1320px) {
-  html { font-size: 8.4px; }
-}
-@media (max-width: 767px) {
-  html { font-size: 10px; }
-}
+// @media (min-width: 1930px) {
+//   html { font-size: 12px; }
+// }
+// @media (max-width: 1700px) {
+//   html { font-size: 9px; }
+// }
+// @media (max-width: 1430px) {
+//   html { font-size: 8.6px; }
+// }
+// @media (max-width: 1320px) {
+//   html { font-size: 8.4px; }
+// }
+// @media (max-width: 767px) {
+//   html { font-size: 10px; }
+// }
 
 //----------------------------------------------------------------
 // Body
@@ -85,18 +85,15 @@ body.lock {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  // Плавное появление страницы — чистый CSS, без JS
   opacity: 0;
-  @include tran();
-  transition-duration: 1s;
+  animation: fadeIn 1.2s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
   @supports (overflow: clip) {
     overflow: clip;
   }
   // Прижимаем footer
   > main {
     flex: 1 1 auto;
-    // @media (max-width:767px){
-    //    padding-top: 60px;
-    // }
   }
 }
 
@@ -130,10 +127,6 @@ body.lock {
 img {
   max-width: 100%;
   height: auto;
-}
-
-svg {
-  @include tran;
 }
 
 .svg-hidden {
