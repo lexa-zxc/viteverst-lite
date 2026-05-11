@@ -124,46 +124,53 @@ export function scssAliasPlugin() {
 
 
 /**
- * Плагин для активации новых SCSS файлов
- * @returns {Object} Vite плагин
+ * Плагин для активации новых SCSS-файлов на dev-сервере.
+ *
+ * Зачем: `main.scss` содержит glob-импорт `@import 'pages/*'`, который
+ * резолвится vite-plugin-sass-glob-import ОДИН РАЗ на transform-стадии.
+ * Когда пользователь создаёт новый .scss в pages/ — glob его не видит,
+ * пока main.scss не будет пересобран.
+ *
+ * Решение:
+ *   1. Когда watcher замечает новый .scss/.sass — находим все модули main.scss
+ *      в moduleGraph (их может быть несколько: виртуальные, с query, и т.п.)
+ *      и инвалидируем каждый.
+ *   2. На всякий случай эмулируем 'change' событие на main.scss через
+ *      server.watcher.emit — Vite обработает его своей штатной логикой
+ *      (без реальной записи в файл пользователя).
+ *   3. Отправляем full-reload браузеру.
+ *
+ * @returns {import('vite').Plugin}
  */
 export function scssFileWatcherPlugin() {
   return {
     name: 'scss-file-watcher-plugin',
     apply: 'serve',
     configureServer(server) {
-      server.watcher.on('add', (path) => {
-        if (path.endsWith('.scss') || path.endsWith('.sass')) {
+      const mainScssPath = join(PATHS.scss, 'main.scss');
 
+      server.watcher.on('add', (addedPath) => {
+        if (!addedPath.endsWith('.scss') && !addedPath.endsWith('.sass')) return;
 
-          try {
-            // Путь к основному файлу стилей
-            const mainScssPath = join(PATHS.scss, 'main.scss');
-
-            // Проверяем, существует ли файл
-            if (fs.existsSync(mainScssPath)) {
-              // Читаем содержимое файла
-              let content = fs.readFileSync(mainScssPath, 'utf-8');
-
-              // Добавляем временный комментарий в конец файла
-              const timestamp = Date.now();
-              content += `\n// Временный комментарий для обновления: ${timestamp}\n`;
-              fs.writeFileSync(mainScssPath, content);
-
-              // Через небольшую задержку удаляем этот комментарий
-              setTimeout(() => {
-                content = content.replace(`\n// Временный комментарий для обновления: ${timestamp}\n`, '');
-                fs.writeFileSync(mainScssPath, content);
-                console.log(`${CONSOLE_COLORS.green}Обнаружен и активирован новый SCSS файл: ${path}${CONSOLE_COLORS.reset}`);
-              }, 100);
-            } else {
-              console.log(`${CONSOLE_COLORS.red}Файл main.scss не найден по пути: ${mainScssPath}${CONSOLE_COLORS.reset}`);
-            }
-          } catch (error) {
-            console.error('Ошибка при обновлении main.scss:', error);
+        // 1. Инвалидируем все модули, связанные с main.scss
+        const modules = server.moduleGraph.getModulesByFile(mainScssPath);
+        if (modules && modules.size > 0) {
+          for (const mod of modules) {
+            server.moduleGraph.invalidateModule(mod);
           }
         }
+
+        // 2. Эмулируем изменение main.scss — Vite пересоберёт SCSS через
+        //    штатный pipeline (glob-import-plugin подхватит новый файл)
+        server.watcher.emit('change', mainScssPath);
+
+        // 3. Перезагрузка страницы для применения нового CSS
+        server.ws.send({ type: 'full-reload', path: '*' });
+
+        console.log(
+          `${CONSOLE_COLORS.green}Обнаружен новый SCSS-файл: ${addedPath}${CONSOLE_COLORS.reset}`
+        );
       });
-    }
+    },
   };
 }
