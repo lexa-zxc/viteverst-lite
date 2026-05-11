@@ -2,9 +2,9 @@
 
 // ───── Основа ─────
 @import 'mixins';     // @function / @mixin
-@import 'variables';  // SCSS $-переменные + :root {--vars}
+@import 'variables';  // CSS Custom Properties (:root)
 @import 'fonts';      // @font-face
-@import 'reset';      // нормализация
+@import 'reset';      // сборс стилей
 
 // ───── Глобальные стили ─────
 @import 'base';       // html/body, wrapper, container, scroll-area, rem-адаптивка, body.lock, [data-fullscreen]

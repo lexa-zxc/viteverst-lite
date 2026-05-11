@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   //======== Константы проекта =========//
-  const gsap_ease = 'power4.out';
+  // const gsap_ease = 'power4.out';
 
   //======== Актуальная ширина устройства =========//
   const getWidth  = () => window.innerWidth;
