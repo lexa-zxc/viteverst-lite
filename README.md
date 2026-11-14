@@ -76,6 +76,7 @@ app/
 
 ## Ссылки
 
+- Полный гайд по сборке и конвенциям (SCSS, @@include, DynamicAdapt, правила проекта): **[GUIDE.md](GUIDE.md)**
 - Полная сборка: **[github.com/lexa-zxc/viteverst](https://github.com/lexa-zxc/viteverst)**
 - Демо полной сборки: [web-2112.ru/vite](https://web-2112.ru/vite/)
 
