@@ -1,24 +1,17 @@
 import fs from 'fs';
-import { createHash } from 'crypto';
-import { join, extname, basename, relative, resolve, sep } from 'path';
+import { join, extname, basename } from 'path';
 import { PATHS } from '../config/paths.js';
 import { findAllImages, formatFileSize } from '../utils/fs-utils.js';
 import { CONSOLE_COLORS, IMAGE_OPTIMIZATION } from '../config/constants.js';
-
-/**
- * Директория кеша оптимизации изображений.
- * Папка .cache уже в .gitignore — в git не попадёт.
- * Структура:
- *   .cache/optimize-images/
- *   ├── cache.json
- *   │   ├── settings  — хеш настроек sharp + версии (инвалидация всего кеша)
- *   │   ├── entries   — карта: hash(содержимое) → расширение
- *   │   └── statMap   — карта: путь → { size, mtimeMs, contentHash }
- *   │                    stat fast path: пропускает хеширование, пока
- *   │                    отпечаток исходника совпадает с записанным
- *   └── store/        — сжатые результаты, имена = hash + расширение
- */
-const CACHE_DIR = join(process.cwd(), '.cache', 'optimize-images');
+import {
+  CACHE_DIR,
+  loadCache,
+  saveCache,
+  resolveContentHash,
+  restoreFromStore,
+  writeFileWithRetry,
+  getFullSettingsVersion
+} from '../utils/img-cache.js';
 
 /**
  * Возвращает функцию-кодировщик sharp для файла по его расширению
@@ -42,177 +35,51 @@ function getEncoder(ext) {
 }
 
 /**
- * SHA-1 хеш содержимого файла (стримом — не грузим файл в память целиком)
- * @param {string} filePath - Путь к файлу
- * @returns {Promise<string>} Хеш
- */
-function fileHash(filePath) {
-  return new Promise((resolve, reject) => {
-    const hash = createHash('sha1');
-    fs.createReadStream(filePath)
-      .on('data', (chunk) => hash.update(chunk))
-      .on('end', () => resolve(hash.digest('hex')))
-      .on('error', reject);
-  });
-}
-
-/**
- * stat без исключений — файла может не быть (удалили посреди билда)
- * @param {string} filePath - Путь к файлу
- * @returns {fs.Stats|null} Статистика или null
- */
-function statSyncSafe(filePath) {
-  try {
-    return fs.statSync(filePath);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Версия настроек: хеш конфига sharp + версии самой sharp.
- * Меняется при любой правке IMAGE_OPTIMIZATION или обновлении sharp —
- * кеш с прошлыми настройками считается недействительным.
- * @param {string} sharpVersion - Версия sharp
- * @returns {string} Короткий хеш
- */
-function getSettingsVersion(sharpVersion) {
-  return createHash('sha1')
-    .update(JSON.stringify(IMAGE_OPTIMIZATION) + sharpVersion)
-    .digest('hex')
-    .slice(0, 12);
-}
-
-/**
- * Загрузка кеша. Если настроек нет / кеш битый / настройки изменились —
- * стор стирается и начинаем с нуля.
- * @param {string} settingsVersion - Текущая версия настроек
- * @returns {Object} Кеш вида { settings, entries, statMap }
- */
-function loadCache(settingsVersion) {
-  try {
-    const cachePath = join(CACHE_DIR, 'cache.json');
-    if (fs.existsSync(cachePath)) {
-      const cache = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
-      if (cache && cache.settings === settingsVersion) {
-        // statMap появился позже entries — старый формат мигрирует на месте
-        return { ...cache, statMap: cache.statMap || {} };
-      }
-    }
-  } catch {
-    // Битый cache.json — начнём с чистого кеша
-  }
-
-  // Настройки/версия изменились или кеша не было — стор неактуален
-  fs.rmSync(join(CACHE_DIR, 'store'), { recursive: true, force: true });
-  return { settings: settingsVersion, entries: {}, statMap: {} };
-}
-
-/**
- * Сохранение кеша на диск
- * @param {Object} cache - Кеш вида { settings, entries }
- */
-function saveCache(cache) {
-  fs.mkdirSync(CACHE_DIR, { recursive: true });
-  fs.writeFileSync(join(CACHE_DIR, 'cache.json'), JSON.stringify(cache, null, 2));
-}
-
-/**
- * Запись файла с ретраями — на Windows антивирус/индексатор могут
- * держать свежезаписанный файл пару мгновений (EPERM / UNKNOWN)
- * @param {string} filePath - Путь к файлу
- * @param {Buffer} data - Данные для записи
- */
-async function writeFileWithRetry(filePath, data) {
-  const ATTEMPTS = 5;
-  for (let i = 0; i < ATTEMPTS; i++) {
-    try {
-      fs.writeFileSync(filePath, data);
-      return;
-    } catch (error) {
-      if (i === ATTEMPTS - 1) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 50 * (i + 1)));
-    }
-  }
-}
-
-/**
  * Обработка одного изображения:
- *   - stat fast path: отпечаток исходника совпал → хеш из statMap, без вычислений
- *   - иначе честный SHA-1 (файл новый/заменён/исходник пропал)
- *   - хеш-хит    → восстановление готового файла из стора (мс вместо секунд)
- *   - хеш-промах → сжатие sharp + сохранение результата в стор
+ *   - hash-промах → сжатие sharp + сохранение результата в стор
+ *   - hash-хит    → восстановление готового файла из стора (мс вместо секунд)
  *
  * Важно: «скипать» нельзя — dist каждый раз собирается из сырых оригиналов,
  * поэтому хит подменяет свежескопированный оригинал сжатой версией из стора.
  *
  * @param {import('sharp').Sharp} sharp - Экземпляр sharp
  * @param {string} imagePath - Путь к изображению в dist
- * @param {Object} cache - Загруженный кеш (мутируется: добавляются новые записи)
- * @param {Set<string>} usedHashes - Хеши, использованные в этом прогоне (для чистки кеша)
- * @param {Set<string>} usedPaths - Пути, встретившиеся в этом прогоне (для чистки statMap)
+ * @param {Object} cache - Кеш (мутируется)
+ * @param {Set<string>} usedHashes - Хеши этого прогона (для чистки кеша)
+ * @param {Set<string>} usedPaths - Пути этого прогона (для чистки statMap)
+ * @param {Object} opts - { skipWebp: boolean } — не трогать .webp (их ведёт webp-plugin)
  * @returns {Object} Результат обработки
  */
-async function processImage(sharp, imagePath, cache, usedHashes, usedPaths) {
+async function processImage(sharp, imagePath, cache, usedHashes, usedPaths, opts = {}) {
   const imageExt = extname(imagePath).toLowerCase();
-  const encode = getEncoder(imageExt);
 
-  // Формат не поддерживается (svg, ico, ...) — пропускаем
+  // Формат не поддерживается или делегирован webp-plugin — пропускаем
+  if (opts.skipWebp && imageExt === '.webp') {
+    return { path: imagePath, skipped: true };
+  }
+
+  const encode = getEncoder(imageExt);
   if (!encode) {
     return { path: imagePath, skipped: true };
   }
 
   try {
     const name = basename(imagePath);
-
-    //=== Определяем contentHash: stat fast path или честный хеш ===//
-    // Отпечаток берём у ИСХОДНИКА в app/: он постоянен между билдами.
-    // dist-копия пересоздаётся каждый билд со свежим mtime — stat по ней бесполезен.
-    const relPath = relative(PATHS.dist, imagePath).split(sep).join('/').toLowerCase();
-    usedPaths.add(relPath);
-
-    const sourceStat = statSyncSafe(resolve(PATHS.app, relPath));
-    const statEntry = cache.statMap[relPath];
-
-    let contentHash;
-    if (
-      sourceStat &&
-      statEntry &&
-      statEntry.size === sourceStat.size &&
-      statEntry.mtimeMs === sourceStat.mtimeMs
-    ) {
-      // Fast path: отпечаток совпал — верим карте, хеш не считаем
-      contentHash = statEntry.contentHash;
-    } else {
-      contentHash = await fileHash(imagePath);
-      if (sourceStat) {
-        cache.statMap[relPath] = {
-          size: sourceStat.size,
-          mtimeMs: sourceStat.mtimeMs,
-          contentHash
-        };
-      } else {
-        // Исходник пропал посреди билда — stat-запись больше не имеет смысла
-        delete cache.statMap[relPath];
-      }
-    }
-
-    usedHashes.add(contentHash);
+    const contentHash = await resolveContentHash(imagePath, cache, usedHashes, usedPaths);
 
     //=== Хит: восстанавливаем сжатую версию из стора ===//
     const cachedExt = cache.entries[contentHash];
     if (cachedExt) {
       const storeFile = join(CACHE_DIR, 'store', contentHash + cachedExt);
-      if (fs.existsSync(storeFile)) {
-        const originalSize = fs.statSync(imagePath).size; // до перезаписи!
-        const cachedBuffer = fs.readFileSync(storeFile);
-        await writeFileWithRetry(imagePath, cachedBuffer);
+      const originalSize = fs.statSync(imagePath).size; // до перезаписи!
+      if (await restoreFromStore(storeFile, imagePath)) {
+        const newSize = fs.statSync(imagePath).size;
         return {
           path: imagePath,
           name,
           originalSize,
-          newSize: cachedBuffer.length,
-          compressionPercent: Math.round((1 - cachedBuffer.length / originalSize) * 100),
+          newSize,
+          compressionPercent: Math.round((1 - newSize / originalSize) * 100),
           fromCache: true,
           success: true
         };
@@ -253,9 +120,10 @@ async function processImage(sharp, imagePath, cache, usedHashes, usedPaths) {
 
 /**
  * Плагин для оптимизации изображений с файловым кешем
+ * @param {Object} opts - { skipWebp: boolean }
  * @returns {Object} Vite плагин
  */
-export async function imageOptimizationPlugin() {
+export function imageOptimizationPlugin({ skipWebp = false } = {}) {
   return {
     name: 'optimize-images-plugin',
     apply: 'build',
@@ -279,7 +147,7 @@ export async function imageOptimizationPlugin() {
         const sharp = (await import('sharp')).default;
 
         // Кеш: валиден пока не менялись настройки и версия sharp
-        const settingsVersion = getSettingsVersion(sharp.versions.sharp);
+        const settingsVersion = getFullSettingsVersion(IMAGE_OPTIMIZATION, sharp.versions.sharp);
         const cache = loadCache(settingsVersion);
         const usedHashes = new Set();
         const usedPaths = new Set();
@@ -301,7 +169,7 @@ export async function imageOptimizationPlugin() {
         // поэтому запускаем все файлы сразу — лишние задачи встают в очередь
         const results = await Promise.all(
           allImages.map(async (imagePath) => {
-            const result = await processImage(sharp, imagePath, cache, usedHashes, usedPaths);
+            const result = await processImage(sharp, imagePath, cache, usedHashes, usedPaths, { skipWebp });
             updateProgress();
             return result;
           })
@@ -351,7 +219,7 @@ export async function imageOptimizationPlugin() {
           }
 
           if (skippedImages.length > 0) {
-            console.log(`${CONSOLE_COLORS.cyan}Пропущено (не требуется оптимизация):${CONSOLE_COLORS.reset} ${skippedImages.length}`);
+            console.log(`${CONSOLE_COLORS.cyan}Пропущено:${CONSOLE_COLORS.reset} ${skippedImages.length}`);
           }
 
           if (failedImages.length > 0) {

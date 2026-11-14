@@ -427,8 +427,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
 - `npm run build` — сжимает картинки (тумблер `optimizeImages` в `BUILD_SETTINGS`)
 - `npm run build-min` — сжимает всегда
+- `npm run build --webp` — плюс webp-дубли (см. ниже)
 - Первый билд складывает сжатые файлы в кеш `.cache/` (в git не попадает), дальше тёплые билды подменяют картинки из него за доли секунды. Смена настроек или обновление sharp — кеш протухает сам
 - `OPTIMIZE=true/false` перед командой — принудительно вкл/выкл поверх всего
+
+### WebP-дубли (`--webp`)
+
+При `npm run build --webp` (работает и с `build-min`) сборка сама:
+
+- генерирует webp-дубль для каждой jpg/png в dist/img (если webp легче — на плоских PNG дубля не будет)
+- оборачивает `<img src="@img/фото.jpg">` в `<picture>` с `<source type="image/webp">` и jpg-фолбэком
+- для CSS-фонов `url("@img/bg.jpg")` генерирует дубль правила с `.is-webp` префиксом селектора (вставляется после оригинала, внутри того же @media)
+- вставляет синхронный webp-детект в `<head>` (canvas toDataURL) → `html.is-webp` / `html.no-webp`
+
+**В верстке и SCSS ничего писать не нужно** — webp живёт только в dist. Без флага поведение обычное.
+
+Ограничения v1: обрабатываются `<img>` с простым `src` (без `srcset`/`data-src`), inline `style="background:url(...)"` не трансформируется, GIF/SVG/внешние URL пропускаются. Ключ `--webp` без `--` — npm съедает его сам и передаёт через `npm_config_webp`; с `-- --webp` флаг ловит cli-обёртка (`vite-config/scripts/vite-cli.js`).
 
 ---
 

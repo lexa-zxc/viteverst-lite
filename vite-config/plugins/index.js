@@ -2,6 +2,7 @@ import sassGlobImports from 'vite-plugin-sass-glob-import';
 import { fileIncludePlugin } from './file-include-plugin.js';
 import { htmlAliasPlugin } from './html-alias-plugin.js';
 import { copyResourcesPlugin } from './copy-resources-plugin.js';
+import { webpPipelinePlugin } from './webp-plugin.js';
 import {
   normalizeCssPathsPlugin,
   processHtmlPlugin,
@@ -47,32 +48,47 @@ export function getResourcePlugins() {
 
 /**
  * Возвращает плагины для постобработки файлов
+ * @param {Object} opts - { webp?: boolean }
  * @returns {Array} Массив плагинов
  */
-export function getPostProcessPlugins() {
+export function getPostProcessPlugins({ webp = false } = {}) {
+  // В webp-режиме webpPipelinePlugin заменяет processHtmlPlugin и несёт
+  // в себе все webp-стадии (дубли → CSS → HTML) в ОДНОМ closeBundle:
+  // rollup не ожидает async closeBundle-хуки, отдельные плагины гонялись
+  // бы параллельно
+  if (webp) {
+    return [
+      normalizeCssPathsPlugin(),
+      renameJsPlugin(),
+      webpPipelinePlugin()
+    ];
+  }
+
   return [
     normalizeCssPathsPlugin(),
     renameJsPlugin(),
-    processHtmlPlugin(), // должен идти последним — HTML зависит от финальных имён файлов
+    processHtmlPlugin() // должен идти последним — HTML зависит от финальных имён файлов
   ];
 }
 
 /**
  * Возвращает все плагины для продакшн сборки
  * @param {boolean} withImageOptimization - Флаг оптимизации изображений
+ * @param {boolean} webp - Генерация webp-дублей (--webp)
  * @returns {Array} Массив плагинов
  */
-export async function getAllPlugins(withImageOptimization = false) {
+export async function getAllPlugins(withImageOptimization = false, webp = false) {
   const basePlugins = await getBasePlugins();
   const allPlugins = [
     ...basePlugins,
     ...getResourcePlugins(),
-    ...getPostProcessPlugins(),
+    ...getPostProcessPlugins({ webp }),
   ];
 
   if (withImageOptimization) {
-    allPlugins.push(await imageOptimizationPlugin());
+    // В webp-режиме сжатие не трогает .webp-дубли (их ведёт webpPipelinePlugin)
+    allPlugins.push(await imageOptimizationPlugin({ skipWebp: webp }));
   }
 
   return allPlugins;
-} 
+}

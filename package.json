@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --open --host",
-    "build": "vite build --mode production",
-    "build-min": "vite build --mode production-min",
+    "build": "node vite-config/scripts/vite-cli.js build --mode production",
+    "build-min": "node vite-config/scripts/vite-cli.js build --mode production-min",
     "preview": "vite preview --open --host",
     "fonts": "fonts.bat",
     "fonts:convert": "node vite-config/scripts/convert-fonts.js"

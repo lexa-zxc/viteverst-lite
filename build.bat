@@ -4,5 +4,5 @@ color 0A
 echo.
 echo ^>^>^> СБОРКА ПРОЕКТА (БЕЗ МИНИФИКАЦИИ) ^<^<^<
 echo.
-npm run build
+npm run build -- %*
 pause 

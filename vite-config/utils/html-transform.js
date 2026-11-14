@@ -101,11 +101,14 @@ export function transformAliases(html, aliases) {
  *   - удаляет crossorigin, type="module"
  *   - подменяет script/link на фиксированные пути (js/app.js, css/app.css)
  *   - убирает префикс ./ из src/href
+ *   - с opts.webp: оборачивает <img src="img/*.jpg|png"> в <picture> с webp-source
+ *     и вставляет синхронный webp-детект в <head>
  *
  * @param {string} html
+ * @param {Object} opts - { webp?: (src) => boolean } — проверка наличия webp-дубля
  * @returns {string}
  */
-export function transformBuildHtml(html) {
+export function transformBuildHtml(html, opts = {}) {
   const root = parseHtml(html);
 
   // <script> обработка
@@ -149,7 +152,67 @@ export function transformBuildHtml(html) {
     });
   });
 
-  return root.toString();
+  if (typeof opts.webp === 'function') {
+    wrapImagesWithPicture(root, opts.webp);
+  }
+
+  const result = root.toString();
+
+  if (typeof opts.webp === 'function') {
+    return insertWebpDetect(result);
+  }
+
+  return result;
+}
+
+/**
+ * Оборачивает <img> с локальными jpg/png (у которых есть webp-дубль)
+ * в <picture> с <source type="image/webp">.
+ *
+ * Пропускаются: уже в <picture>, с srcset/data-src (v1), не-локальные src.
+ *
+ * Замена через replaceWith с готовым узлом: setter outerHTML в
+ * node-html-parser — тихий no-op.
+ *
+ * @param {import('node-html-parser').HTMLElement} root
+ * @param {Function} twinExists - (src) => boolean — есть ли webp-дубль для пути
+ */
+function wrapImagesWithPicture(root, twinExists) {
+  root.querySelectorAll('img').forEach((img) => {
+    const src = img.getAttribute('src') || '';
+    if (!/^img\/.+\.(jpe?g|png)$/i.test(src)) return;
+    if (img.hasAttribute('srcset') || img.hasAttribute('data-src')) return;
+
+    const parentTag = (img.parentNode?.rawTagName || '').toLowerCase();
+    if (parentTag === 'picture') return;
+
+    if (!twinExists(src)) return;
+
+    const webpSrc = src.replace(/\.(jpe?g|png)$/i, '.webp');
+    const pictureHtml =
+      `<picture><source srcset="${webpSrc}" type="image/webp">${img.outerHTML}</picture>`;
+    img.replaceWith(parse(pictureHtml).firstChild);
+  });
+}
+
+/**
+ * Синхронный webp-детект: canvas.toDataURL('image/webp') — кодек отвечает
+ * сразу, без сетевых проверок. Класс ставится до начала загрузки фонов,
+ * поэтому браузер качает только нужную версию (jpg или webp).
+ *
+ * @param {string} html - Готовый HTML
+ * @returns {string} HTML со вставленным скриптом перед </head>
+ */
+function insertWebpDetect(html) {
+  const script =
+    '<script>try{var c=document.createElement("canvas");c.width=c.height=1;' +
+    'if(c.toDataURL("image/webp").indexOf("data:image/webp")===0){document.documentElement.classList.add("is-webp")}' +
+    'else{document.documentElement.classList.add("no-webp")}}catch(e){document.documentElement.classList.add("no-webp")}</script>';
+
+  if (html.includes('</head>')) {
+    return html.replace('</head>', `${script}</head>`);
+  }
+  return html;
 }
 
 //
