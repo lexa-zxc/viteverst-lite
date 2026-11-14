@@ -46,9 +46,9 @@ fonts      # ttf → woff2
 
 ## Оптимизация изображений
 
-Сжатие на sharp: mozjpeg q80 для jpg, палитра q90 для png — уровни подобраны
-по замерам веса/качества, визуально прозрачные. Параметры — `IMAGE_OPTIMIZATION`
-в `vite-config/config/constants.js`.
+Сжатие на sharp: mozjpeg q85 для jpg, q85 (smartSubsample) для webp, палитра
+q90 для png — уровни подобраны по замерам веса/качества. Параметры —
+`IMAGE_OPTIMIZATION` в `vite-config/config/constants.js`.
 
 - `npm run build` — сжимает картинки (тумблер `optimizeImages` в `BUILD_SETTINGS`)
 - `npm run build-min` — сжимает всегда

@@ -138,107 +138,107 @@ export function imageOptimizationPlugin({ skipWebp = false } = {}) {
           const imgDistDir = join(PATHS.dist, 'img');
           if (!fs.existsSync(imgDistDir)) return;
 
-        console.log(`${CONSOLE_COLORS.green}Начинаем оптимизацию изображений (sharp)...${CONSOLE_COLORS.reset}`);
+          console.log(`${CONSOLE_COLORS.green}Начинаем оптимизацию изображений (sharp)...${CONSOLE_COLORS.reset}`);
 
-        // Находим все изображения (кроме SVG)
-        const allImages = findAllImages(imgDistDir);
+          // Находим все изображения (кроме SVG)
+          const allImages = findAllImages(imgDistDir);
 
-        if (allImages.length === 0) {
-          console.log(`${CONSOLE_COLORS.yellow}Изображения для оптимизации не найдены${CONSOLE_COLORS.reset}`);
-          return;
-        }
+          if (allImages.length === 0) {
+            console.log(`${CONSOLE_COLORS.yellow}Изображения для оптимизации не найдены${CONSOLE_COLORS.reset}`);
+            return;
+          }
 
-        // Загружаем sharp лениво — только когда оптимизация реально нужна
-        const sharp = (await import('sharp')).default;
+          // Загружаем sharp лениво — только когда оптимизация реально нужна
+          const sharp = (await import('sharp')).default;
 
-        // Кеш: валиден пока не менялись настройки и версия sharp
-        const settingsVersion = getFullSettingsVersion(IMAGE_OPTIMIZATION, sharp.versions.sharp);
-        const cache = loadCache(settingsVersion);
-        const usedHashes = new Set();
-        const usedPaths = new Set();
+          // Кеш: валиден пока не менялись настройки и версия sharp
+          const settingsVersion = getFullSettingsVersion(IMAGE_OPTIMIZATION, sharp.versions.sharp);
+          const cache = loadCache(settingsVersion);
+          const usedHashes = new Set();
+          const usedPaths = new Set();
 
-        console.log(`${CONSOLE_COLORS.cyan}Найдено изображений для оптимизации: ${allImages.length}${CONSOLE_COLORS.reset}`);
+          console.log(`${CONSOLE_COLORS.cyan}Найдено изображений для оптимизации: ${allImages.length}${CONSOLE_COLORS.reset}`);
 
-        // Счетчики для отображения прогресса
-        let processedCount = 0;
-        const startTime = Date.now();
+          // Счетчики для отображения прогресса
+          let processedCount = 0;
+          const startTime = Date.now();
 
-        function updateProgress() {
-          processedCount++;
-          const percent = Math.round((processedCount / allImages.length) * 100);
-          const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-          process.stdout.write(`\r${CONSOLE_COLORS.cyan}Оптимизация изображений: ${percent}% (${processedCount}/${allImages.length}) - ${elapsed}с${CONSOLE_COLORS.reset}`);
-        }
+          function updateProgress() {
+            processedCount++;
+            const percent = Math.round((processedCount / allImages.length) * 100);
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            process.stdout.write(`\r${CONSOLE_COLORS.cyan}Оптимизация изображений: ${percent}% (${processedCount}/${allImages.length}) - ${elapsed}с${CONSOLE_COLORS.reset}`);
+          }
 
-        // sharp сам распараллеливает работу через пул потоков libvips,
-        // поэтому запускаем все файлы сразу — лишние задачи встают в очередь
-        const results = await Promise.all(
-          allImages.map(async (imagePath) => {
-            const result = await processImage(sharp, imagePath, cache, usedHashes, usedPaths, { skipWebp });
-            updateProgress();
-            return result;
-          })
-        );
-
-        console.log('\n'); // Новая строка после прогресс-бара
-
-        // Чистим кеш от записей, которые не встретились в этом прогоне
-        for (const hash of Object.keys(cache.entries)) {
-          if (!usedHashes.has(hash)) delete cache.entries[hash];
-        }
-        for (const path of Object.keys(cache.statMap)) {
-          if (!usedPaths.has(path)) delete cache.statMap[path];
-        }
-        saveCache(cache);
-
-        // Фильтруем результаты
-        const optimizedImages = results.filter(r => r && r.success && !r.skipped);
-        const fromCacheCount = optimizedImages.filter(r => r.fromCache).length;
-        const skippedImages = results.filter(r => r && r.skipped);
-        const failedImages = results.filter(r => !r || r.error);
-
-        // Рассчитываем общую статистику
-        let totalOriginalSize = 0;
-        let totalOptimizedSize = 0;
-
-        optimizedImages.forEach(img => {
-          totalOriginalSize += img.originalSize;
-          totalOptimizedSize += img.newSize;
-        });
-
-        // Выводим общую статистику оптимизации
-        if (optimizedImages.length > 0) {
-          console.log(`\n${CONSOLE_COLORS.green}----- Статистика оптимизации -----${CONSOLE_COLORS.reset}`);
-
-          // Общая статистика
-          const totalSaved = totalOriginalSize - totalOptimizedSize;
-          const totalPercent = Math.round((1 - totalOptimizedSize / totalOriginalSize) * 100);
-
-          console.log(
-            `\n${CONSOLE_COLORS.cyan}Общая экономия:${CONSOLE_COLORS.reset} ${formatFileSize(totalSaved)} (${CONSOLE_COLORS.green}-${totalPercent}%${CONSOLE_COLORS.reset})`
+          // sharp сам распараллеливает работу через пул потоков libvips,
+          // поэтому запускаем все файлы сразу — лишние задачи встают в очередь
+          const results = await Promise.all(
+            allImages.map(async (imagePath) => {
+              const result = await processImage(sharp, imagePath, cache, usedHashes, usedPaths, { skipWebp });
+              updateProgress();
+              return result;
+            })
           );
-          console.log(`${CONSOLE_COLORS.cyan}Успешно оптимизировано:${CONSOLE_COLORS.reset} ${optimizedImages.length}`);
 
-          if (fromCacheCount > 0) {
-            console.log(`${CONSOLE_COLORS.cyan}Взято из кеша:${CONSOLE_COLORS.reset} ${fromCacheCount}`);
+          console.log('\n'); // Новая строка после прогресс-бара
+
+          // Чистим кеш от записей, которые не встретились в этом прогоне
+          for (const hash of Object.keys(cache.entries)) {
+            if (!usedHashes.has(hash)) delete cache.entries[hash];
           }
-
-          if (skippedImages.length > 0) {
-            console.log(`${CONSOLE_COLORS.cyan}Пропущено:${CONSOLE_COLORS.reset} ${skippedImages.length}`);
+          for (const path of Object.keys(cache.statMap)) {
+            if (!usedPaths.has(path)) delete cache.statMap[path];
           }
+          saveCache(cache);
 
-          if (failedImages.length > 0) {
-            console.log(`${CONSOLE_COLORS.yellow}Не удалось оптимизировать:${CONSOLE_COLORS.reset} ${failedImages.length}`);
+          // Фильтруем результаты
+          const optimizedImages = results.filter(r => r && r.success && !r.skipped);
+          const fromCacheCount = optimizedImages.filter(r => r.fromCache).length;
+          const skippedImages = results.filter(r => r && r.skipped);
+          const failedImages = results.filter(r => !r || r.error);
+
+          // Рассчитываем общую статистику
+          let totalOriginalSize = 0;
+          let totalOptimizedSize = 0;
+
+          optimizedImages.forEach(img => {
+            totalOriginalSize += img.originalSize;
+            totalOptimizedSize += img.newSize;
+          });
+
+          // Выводим общую статистику оптимизации
+          if (optimizedImages.length > 0) {
+            console.log(`\n${CONSOLE_COLORS.green}----- Статистика оптимизации -----${CONSOLE_COLORS.reset}`);
+
+            // Общая статистика
+            const totalSaved = totalOriginalSize - totalOptimizedSize;
+            const totalPercent = Math.round((1 - totalOptimizedSize / totalOriginalSize) * 100);
+
+            console.log(
+              `\n${CONSOLE_COLORS.cyan}Общая экономия:${CONSOLE_COLORS.reset} ${formatFileSize(totalSaved)} (${CONSOLE_COLORS.green}-${totalPercent}%${CONSOLE_COLORS.reset})`
+            );
+            console.log(`${CONSOLE_COLORS.cyan}Успешно оптимизировано:${CONSOLE_COLORS.reset} ${optimizedImages.length}`);
+
+            if (fromCacheCount > 0) {
+              console.log(`${CONSOLE_COLORS.cyan}Взято из кеша:${CONSOLE_COLORS.reset} ${fromCacheCount}`);
+            }
+
+            if (skippedImages.length > 0) {
+              console.log(`${CONSOLE_COLORS.cyan}Пропущено:${CONSOLE_COLORS.reset} ${skippedImages.length}`);
+            }
+
+            if (failedImages.length > 0) {
+              console.log(`${CONSOLE_COLORS.yellow}Не удалось оптимизировать:${CONSOLE_COLORS.reset} ${failedImages.length}`);
+            }
+
+            console.log(`${CONSOLE_COLORS.cyan}Время выполнения:${CONSOLE_COLORS.reset} ${((Date.now() - startTime) / 1000).toFixed(2)}с`);
+            console.log(`${CONSOLE_COLORS.green}---------------------------------${CONSOLE_COLORS.reset}`);
+          } else {
+            console.log(`${CONSOLE_COLORS.yellow}Изображения не нуждаются в оптимизации${CONSOLE_COLORS.reset}`);
           }
-
-          console.log(`${CONSOLE_COLORS.cyan}Время выполнения:${CONSOLE_COLORS.reset} ${((Date.now() - startTime) / 1000).toFixed(2)}с`);
-          console.log(`${CONSOLE_COLORS.green}---------------------------------${CONSOLE_COLORS.reset}`);
-        } else {
-          console.log(`${CONSOLE_COLORS.yellow}Изображения не нуждаются в оптимизации${CONSOLE_COLORS.reset}`);
+        } catch (error) {
+          console.error('Ошибка при оптимизации изображений:', error);
         }
-      } catch (error) {
-        console.error('Ошибка при оптимизации изображений:', error);
-      }
       })
   };
 }
