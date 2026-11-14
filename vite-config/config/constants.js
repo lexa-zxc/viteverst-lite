@@ -15,16 +15,22 @@ export const CONSOLE_COLORS = {
   red: '\x1b[31m'
 };
 
-// Конфигурация оптимизации изображений
+// Конфигурация оптимизации изображений (параметры sharp)
 export const IMAGE_OPTIMIZATION = {
   jpeg: {
-    quality: 80
+    quality: 80,
+    mozjpeg: true // тот же кодек mozjpeg, что был в imagemin
   },
   png: {
-    quality: [0.6, 0.8]
+    quality: 80,
+    palette: true, // квантизация до 256 цветов (аналог pngquant)
+    compressionLevel: 9
+  },
+  webp: {
+    quality: 80
   },
   gif: {
-    optimizationLevel: 7
+    effort: 7 // 0–10, аналог optimizationLevel в gifsicle
   }
 };
 
