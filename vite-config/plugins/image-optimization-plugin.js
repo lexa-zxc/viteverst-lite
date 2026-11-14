@@ -98,19 +98,26 @@ async function processImage(sharp, imagePath, cache, usedHashes, usedPaths, opts
     // С буфером sharp исходный файл вообще не открывает.
     const inputBuffer = fs.readFileSync(imagePath);
     const optimizedBuffer = await encode(sharp(inputBuffer, readOptions)).toBuffer();
-    await writeFileWithRetry(imagePath, optimizedBuffer);
 
-    // Сохраняем результат в стор кеша
+    // Защита от inflate: повторное сжатие уже оптимизированного кем-то jpeg
+    // может дать файл ТЯЖЕЛЕЕ оригинала (другие квантующие таблицы) —
+    // в этом случае остаётся оригинал
+    const finalBuffer =
+      optimizedBuffer.length < originalSize ? optimizedBuffer : inputBuffer;
+    await writeFileWithRetry(imagePath, finalBuffer);
+
+    // Сохраняем результат в стор кеша (для no-gain файлов — оригинал,
+    // чтобы warm-билд не пережимал их снова)
     fs.mkdirSync(join(CACHE_DIR, 'store'), { recursive: true });
-    fs.writeFileSync(join(CACHE_DIR, 'store', contentHash + imageExt), optimizedBuffer);
+    fs.writeFileSync(join(CACHE_DIR, 'store', contentHash + imageExt), finalBuffer);
     cache.entries[contentHash] = imageExt;
 
     return {
       path: imagePath,
       name,
       originalSize,
-      newSize: optimizedBuffer.length,
-      compressionPercent: Math.round((1 - optimizedBuffer.length / originalSize) * 100),
+      newSize: finalBuffer.length,
+      compressionPercent: Math.max(0, Math.round((1 - finalBuffer.length / originalSize) * 100)),
       success: true
     };
   } catch (error) {
