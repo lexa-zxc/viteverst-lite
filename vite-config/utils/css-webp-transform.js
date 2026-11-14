@@ -47,7 +47,7 @@ export function addIsWebpRules(css, twinExists) {
         }
       );
 
-      if (changed) declarations.push(newValue);
+      if (changed) declarations.push({ prop: decl.prop, value: newValue });
     });
 
     if (declarations.length === 0) return;
@@ -55,9 +55,11 @@ export function addIsWebpRules(css, twinExists) {
     // .a, .b → .is-webp .a, .is-webp .b
     const selector = rule.selectors.map((s) => `.is-webp ${s}`).join(', ');
 
-    declarations.forEach((value) => {
+    declarations.forEach(({ prop, value }) => {
       const newRule = postcss.rule({ selector });
-      newRule.append(postcss.decl({ prop: 'background-image', value }));
+      // Свойство сохраняем исходным: дубликат shorthand `background:` должен
+      // остаться `background:` — `background-image: url(...) center/cover` невалиден
+      newRule.append(postcss.decl({ prop, value }));
       rule.parent.insertAfter(rule, newRule);
       added++;
     });
