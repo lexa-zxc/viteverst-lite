@@ -118,6 +118,43 @@ export function getFileContent(filePath, params = {}, parentPath = null, filenam
 }
 
 /**
+ * Экранирует сырые контрольные символы (переносы, табы) ВНУТРИ строковых
+ * литералов JSON. JSON.parse запрещает их буквально — падает с
+ * "Bad control character in string literal". Типичный кейс: длинный title
+ * в @@include, перенесённый в редакторе на новую строку.
+ * Структурные переносы МЕЖДУ токенами (pretty-print JSON) не трогаются.
+ *
+ * @param {string} json - Сырая строка параметров
+ * @returns {string} JSON с экранированными контрольными символами в строках
+ */
+function escapeControlCharsInJsonStrings(json) {
+  let result = '';
+  let inString = false;
+
+  for (let i = 0; i < json.length; i++) {
+    const ch = json[i];
+
+    // экранированный символ внутри строки — копируем пару как есть
+    if (inString && ch === '\\') {
+      result += ch + (json[i + 1] || '');
+      i++;
+      continue;
+    }
+
+    if (ch === '"') inString = !inString;
+
+    if (inString && (ch === '\n' || ch === '\r' || ch === '\t')) {
+      result += ch === '\n' ? '\\n' : ch === '\r' ? '\\r' : '\\t';
+      continue;
+    }
+
+    result += ch;
+  }
+
+  return result;
+}
+
+/**
  * Обработка всех @@include в строке, игнорируя игнорируемые части
  * @param {string} content - Содержимое для обработки
  * @param {string} currentPath - Текущий путь
@@ -194,7 +231,7 @@ export function processIncludes(content, currentPath = null, filename) {
           let params = {};
           if (paramsStr) {
             try {
-              params = JSON.parse(paramsStr);
+              params = JSON.parse(escapeControlCharsInJsonStrings(paramsStr));
             } catch (e) {
               console.error('Ошибка парсинга параметров:', e);
             }
