@@ -15,6 +15,13 @@ export const CONSOLE_COLORS = {
   red: '\x1b[31m'
 };
 
+// Настройки режима build
+export const BUILD_SETTINGS = {
+  // Сжимать изображения при обычной сборке `npm run build`
+  // (build-min сжимает всегда, независимо от этого флага)
+  optimizeImages: true,
+};
+
 // Конфигурация оптимизации изображений (параметры sharp)
 export const IMAGE_OPTIMIZATION = {
   jpeg: {

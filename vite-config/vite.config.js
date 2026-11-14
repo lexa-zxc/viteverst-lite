@@ -3,7 +3,7 @@ import {
   getAllPlugins,
   getBasePlugins
 } from './plugins/index.js';
-import { CONSOLE_COLORS } from './config/constants.js';
+import { CONSOLE_COLORS, BUILD_SETTINGS } from './config/constants.js';
 
 /**
  * Определение режима сборки и параметров конфигурации
@@ -18,9 +18,12 @@ export default async function ({ mode }) {
   const isDev = mode === 'development';
   const isProd = mode === 'production' || mode === 'production-min';
   const isMinify = mode === 'production-min';
-  // Включаем оптимизацию изображений автоматически для режима production-min
-  // или если установлена переменная окружения OPTIMIZE
-  const withOptimization = isMinify || process.env.OPTIMIZE === 'true';
+  // Оптимизация изображений:
+  //   - production-min — всегда
+  //   - production — по флагу BUILD_SETTINGS.optimizeImages из constants.js
+  //   - переменная окружения OPTIMIZE=true/false имеет приоритет над обоими
+  const withOptimization = process.env.OPTIMIZE === 'true'
+    || (process.env.OPTIMIZE !== 'false' && (isMinify || BUILD_SETTINGS.optimizeImages));
 
   // В режиме разработки используем только базовые плагины
   const plugins = isDev 
