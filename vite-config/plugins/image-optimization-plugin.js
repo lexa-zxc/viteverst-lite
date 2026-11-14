@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { createHash } from 'crypto';
-import { join, extname, basename } from 'path';
+import { join, extname, basename, relative, resolve, sep } from 'path';
 import { PATHS } from '../config/paths.js';
 import { findAllImages, formatFileSize } from '../utils/fs-utils.js';
 import { CONSOLE_COLORS, IMAGE_OPTIMIZATION } from '../config/constants.js';
@@ -10,8 +10,13 @@ import { CONSOLE_COLORS, IMAGE_OPTIMIZATION } from '../config/constants.js';
  * Папка .cache уже в .gitignore — в git не попадёт.
  * Структура:
  *   .cache/optimize-images/
- *   ├── cache.json   — карта: hash(содержимое) → расширение
- *   └── store/       — сжатые результаты, имена = hash + расширение
+ *   ├── cache.json
+ *   │   ├── settings  — хеш настроек sharp + версии (инвалидация всего кеша)
+ *   │   ├── entries   — карта: hash(содержимое) → расширение
+ *   │   └── statMap   — карта: путь → { size, mtimeMs, contentHash }
+ *   │                    stat fast path: пропускает хеширование, пока
+ *   │                    отпечаток исходника совпадает с записанным
+ *   └── store/        — сжатые результаты, имена = hash + расширение
  */
 const CACHE_DIR = join(process.cwd(), '.cache', 'optimize-images');
 
@@ -52,6 +57,19 @@ function fileHash(filePath) {
 }
 
 /**
+ * stat без исключений — файла может не быть (удалили посреди билда)
+ * @param {string} filePath - Путь к файлу
+ * @returns {fs.Stats|null} Статистика или null
+ */
+function statSyncSafe(filePath) {
+  try {
+    return fs.statSync(filePath);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Версия настроек: хеш конфига sharp + версии самой sharp.
  * Меняется при любой правке IMAGE_OPTIMIZATION или обновлении sharp —
  * кеш с прошлыми настройками считается недействительным.
@@ -69,7 +87,7 @@ function getSettingsVersion(sharpVersion) {
  * Загрузка кеша. Если настроек нет / кеш битый / настройки изменились —
  * стор стирается и начинаем с нуля.
  * @param {string} settingsVersion - Текущая версия настроек
- * @returns {Object} Кеш вида { settings, entries: { hash: ext } }
+ * @returns {Object} Кеш вида { settings, entries, statMap }
  */
 function loadCache(settingsVersion) {
   try {
@@ -77,16 +95,17 @@ function loadCache(settingsVersion) {
     if (fs.existsSync(cachePath)) {
       const cache = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
       if (cache && cache.settings === settingsVersion) {
-        return cache;
+        // statMap появился позже entries — старый формат мигрирует на месте
+        return { ...cache, statMap: cache.statMap || {} };
       }
     }
   } catch {
     // Битый cache.json — начнём с чистого кеша
   }
 
-  // Настроения/версия изменились или кеша не было — стор неактуален
+  // Настройки/версия изменились или кеша не было — стор неактуален
   fs.rmSync(join(CACHE_DIR, 'store'), { recursive: true, force: true });
-  return { settings: settingsVersion, entries: {} };
+  return { settings: settingsVersion, entries: {}, statMap: {} };
 }
 
 /**
@@ -119,8 +138,10 @@ async function writeFileWithRetry(filePath, data) {
 
 /**
  * Обработка одного изображения:
- *   - хеш-промах → сжатие sharp + сохранение результата в стор
+ *   - stat fast path: отпечаток исходника совпал → хеш из statMap, без вычислений
+ *   - иначе честный SHA-1 (файл новый/заменён/исходник пропал)
  *   - хеш-хит    → восстановление готового файла из стора (мс вместо секунд)
+ *   - хеш-промах → сжатие sharp + сохранение результата в стор
  *
  * Важно: «скипать» нельзя — dist каждый раз собирается из сырых оригиналов,
  * поэтому хит подменяет свежескопированный оригинал сжатой версией из стора.
@@ -129,9 +150,10 @@ async function writeFileWithRetry(filePath, data) {
  * @param {string} imagePath - Путь к изображению в dist
  * @param {Object} cache - Загруженный кеш (мутируется: добавляются новые записи)
  * @param {Set<string>} usedHashes - Хеши, использованные в этом прогоне (для чистки кеша)
+ * @param {Set<string>} usedPaths - Пути, встретившиеся в этом прогоне (для чистки statMap)
  * @returns {Object} Результат обработки
  */
-async function processImage(sharp, imagePath, cache, usedHashes) {
+async function processImage(sharp, imagePath, cache, usedHashes, usedPaths) {
   const imageExt = extname(imagePath).toLowerCase();
   const encode = getEncoder(imageExt);
 
@@ -142,7 +164,39 @@ async function processImage(sharp, imagePath, cache, usedHashes) {
 
   try {
     const name = basename(imagePath);
-    const contentHash = await fileHash(imagePath);
+
+    //=== Определяем contentHash: stat fast path или честный хеш ===//
+    // Отпечаток берём у ИСХОДНИКА в app/: он постоянен между билдами.
+    // dist-копия пересоздаётся каждый билд со свежим mtime — stat по ней бесполезен.
+    const relPath = relative(PATHS.dist, imagePath).split(sep).join('/').toLowerCase();
+    usedPaths.add(relPath);
+
+    const sourceStat = statSyncSafe(resolve(PATHS.app, relPath));
+    const statEntry = cache.statMap[relPath];
+
+    let contentHash;
+    if (
+      sourceStat &&
+      statEntry &&
+      statEntry.size === sourceStat.size &&
+      statEntry.mtimeMs === sourceStat.mtimeMs
+    ) {
+      // Fast path: отпечаток совпал — верим карте, хеш не считаем
+      contentHash = statEntry.contentHash;
+    } else {
+      contentHash = await fileHash(imagePath);
+      if (sourceStat) {
+        cache.statMap[relPath] = {
+          size: sourceStat.size,
+          mtimeMs: sourceStat.mtimeMs,
+          contentHash
+        };
+      } else {
+        // Исходник пропал посреди билда — stat-запись больше не имеет смысла
+        delete cache.statMap[relPath];
+      }
+    }
+
     usedHashes.add(contentHash);
 
     //=== Хит: восстанавливаем сжатую версию из стора ===//
@@ -228,6 +282,7 @@ export async function imageOptimizationPlugin() {
         const settingsVersion = getSettingsVersion(sharp.versions.sharp);
         const cache = loadCache(settingsVersion);
         const usedHashes = new Set();
+        const usedPaths = new Set();
 
         console.log(`${CONSOLE_COLORS.cyan}Найдено изображений для оптимизации: ${allImages.length}${CONSOLE_COLORS.reset}`);
 
@@ -246,7 +301,7 @@ export async function imageOptimizationPlugin() {
         // поэтому запускаем все файлы сразу — лишние задачи встают в очередь
         const results = await Promise.all(
           allImages.map(async (imagePath) => {
-            const result = await processImage(sharp, imagePath, cache, usedHashes);
+            const result = await processImage(sharp, imagePath, cache, usedHashes, usedPaths);
             updateProgress();
             return result;
           })
@@ -257,6 +312,9 @@ export async function imageOptimizationPlugin() {
         // Чистим кеш от записей, которые не встретились в этом прогоне
         for (const hash of Object.keys(cache.entries)) {
           if (!usedHashes.has(hash)) delete cache.entries[hash];
+        }
+        for (const path of Object.keys(cache.statMap)) {
+          if (!usedPaths.has(path)) delete cache.statMap[path];
         }
         saveCache(cache);
 
