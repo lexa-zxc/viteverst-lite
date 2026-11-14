@@ -155,6 +155,63 @@ function escapeControlCharsInJsonStrings(json) {
 }
 
 /**
+ * Сканирует вызов @@include после закрывающей кавычки пути: опциональные
+ * параметры '{...}' и закрывающую ')'.
+ *
+ * Сканирование вместо regex [^}]+: скобочно-осведомлённый проход учитывает
+ * кавычки и эскейпы, поэтому '}' и '{' ВНУТРИ строковых значений
+ * ({"title":"Вариант {A}"}) не ломают парсер.
+ *
+ * @param {string} part - Текущий фрагмент
+ * @param {number} pos - Индекс сразу после закрывающей кавычки пути
+ * @returns {{ end: number, params: string|null }|null} null = вызов синтаксически сломан
+ */
+function scanIncludeCall(part, pos) {
+  let i = pos;
+  while (i < part.length && /\s/.test(part[i])) i++;
+
+  let params = null;
+  if (part[i] === ',') {
+    i++;
+    while (i < part.length && /\s/.test(part[i])) i++;
+    if (part[i] !== '{') return null;
+
+    // баланс скобок: строки с эскейпами не считаются (JSON-строки — двойные)
+    let depth = 0;
+    let inString = false;
+    const objStart = i;
+    for (; i < part.length; i++) {
+      const ch = part[i];
+      if (inString) {
+        if (ch === '\\') {
+          i++;
+          continue;
+        }
+        if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') {
+        inString = true;
+        continue;
+      }
+      if (ch === '{') depth++;
+      if (ch === '}') {
+        depth--;
+        if (depth === 0) break;
+      }
+    }
+    if (depth !== 0) return null;
+
+    params = part.slice(objStart, i + 1);
+    i++;
+    while (i < part.length && /\s/.test(part[i])) i++;
+  }
+
+  if (part[i] !== ')') return null;
+  return { end: i + 1, params };
+}
+
+/**
  * Обработка всех @@include в строке, игнорируя игнорируемые части
  * @param {string} content - Содержимое для обработки
  * @param {string} currentPath - Текущий путь
@@ -204,18 +261,27 @@ export function processIncludes(content, currentPath = null, filename) {
       // Повторяем обработку пока есть изменения (для вложенных include)
       while (hasChanges) {
         hasChanges = false;
-        
-        // Ищем первый @@include с его слотами
-        const includeMatch = part.match(/@@include\(['"]([^'"]+)['"](,\s*({[^}]+}))?\)/);
-        
-        if (includeMatch) {
-          const fullInclude = includeMatch[0];
-          const filePath = includeMatch[1];
-          const paramsStr = includeMatch[3];
-          const includeIndex = part.indexOf(fullInclude);
-          
+
+        // Путь ищем regex'ом, а параметры и закрывающую скобку — сканером
+        // scanIncludeCall: [^}]+ резался на } внутри строковых значений
+        const startMatch = part.match(/@@include\(['"]([^'"]+)['"]/);
+
+        if (startMatch) {
+          const filePath = startMatch[1];
+          const includeIndex = part.indexOf(startMatch[0]);
+          const afterPath = includeIndex + startMatch[0].length;
+          const call = scanIncludeCall(part, afterPath);
+
+          if (!call) {
+            console.error(`@@include ${filePath}: не найдена закрывающая скобка — проверь синтаксис вызова`);
+            break; // сломанный вызов остаётся как есть, не зацикливаемся
+          }
+
+          const fullInclude = part.slice(includeIndex, call.end);
+          const paramsStr = call.params;
+
           // Находим контент после @@include до следующего @@include или конца
-          const afterInclude = part.substring(includeIndex + fullInclude.length);
+          const afterInclude = part.substring(call.end);
           const nextIncludeIndex = afterInclude.search(/@@include\(/);
           const contentToCheck = nextIncludeIndex >= 0 
             ? afterInclude.substring(0, nextIncludeIndex)

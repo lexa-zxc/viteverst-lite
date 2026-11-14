@@ -10,7 +10,8 @@ import {
   resolveContentHash,
   restoreFromStore,
   writeFileWithRetry,
-  getFullSettingsVersion
+  getFullSettingsVersion,
+  runExclusive
 } from '../utils/img-cache.js';
 
 /**
@@ -128,10 +129,14 @@ export function imageOptimizationPlugin({ skipWebp = false } = {}) {
     name: 'optimize-images-plugin',
     apply: 'build',
     enforce: 'post',
-    closeBundle: async () => {
-      try {
-        const imgDistDir = join(PATHS.dist, 'img');
-        if (!fs.existsSync(imgDistDir)) return;
+    // runExclusive: closeBundle-хуки не awaited — без сериализации
+    // компрессия и webp-pipeline читают/пишут cache.json параллельно
+    // и затирают записи друг друга
+    closeBundle: () =>
+      runExclusive('optimize-images', async () => {
+        try {
+          const imgDistDir = join(PATHS.dist, 'img');
+          if (!fs.existsSync(imgDistDir)) return;
 
         console.log(`${CONSOLE_COLORS.green}Начинаем оптимизацию изображений (sharp)...${CONSOLE_COLORS.reset}`);
 
@@ -234,6 +239,6 @@ export function imageOptimizationPlugin({ skipWebp = false } = {}) {
       } catch (error) {
         console.error('Ошибка при оптимизации изображений:', error);
       }
-    }
+      })
   };
 }

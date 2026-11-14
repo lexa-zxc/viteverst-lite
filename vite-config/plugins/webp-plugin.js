@@ -10,7 +10,8 @@ import {
   resolveContentHash,
   restoreFromStore,
   writeFileWithRetry,
-  getFullSettingsVersion
+  getFullSettingsVersion,
+  runExclusive
 } from '../utils/img-cache.js';
 import { addIsWebpRules } from '../utils/css-webp-transform.js';
 import { transformBuildHtml } from '../utils/html-transform.js';
@@ -186,10 +187,13 @@ export function webpPipelinePlugin() {
   return {
     name: 'webp-pipeline',
     apply: 'build',
-    closeBundle: async () => {
-      try {
-        // 1. Дубли в dist/img
-        await generateWebpTwins();
+    // runExclusive: см. комментарий в image-optimization-plugin —
+    // closeBundle-хуки без сериализации затирают кеш друг друга
+    closeBundle: () =>
+      runExclusive('webp-pipeline', async () => {
+        try {
+          // 1. Дубли в dist/img
+          await generateWebpTwins();
 
         // 2. Is-webp правила в CSS (дубли уже записаны)
         transformDistCssWebp();
@@ -219,6 +223,6 @@ export function webpPipelinePlugin() {
       } catch (error) {
         console.error('Ошибка webp-пайплайна:', error);
       }
-    }
+      })
   };
 }

@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "description": "⚡ Lite-версия ViteVerst — облегчённая сборка для верстки на Vite. @@include, слоты, SCSS, CSS-переменные, мультистраничность.",
   "type": "module",
+  "engines": {
+    "node": ">=18.17.0"
+  },
   "scripts": {
     "dev": "vite --open --host",
     "build": "node vite-config/scripts/vite-cli.js build --mode production",

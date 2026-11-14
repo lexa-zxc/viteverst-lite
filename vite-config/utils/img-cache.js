@@ -23,6 +23,29 @@ import { PATHS } from '../config/paths.js';
 
 export const CACHE_DIR = join(process.cwd(), '.cache', 'optimize-images');
 
+//=== Сериализация стадий, работающих с кешем ===//
+// Rollup НЕ ожидает завершения async closeBundle-хуков — тела плагинов
+// идут параллельно, и пары loadCache → saveCache без блокировки теряют
+// записи: кто сохранился последним, тот и прав (первый писатель затирается).
+// Очередь ниже гарантирует, что стадии выполняются строго друг за другом.
+let cacheQueue = Promise.resolve();
+
+/**
+ * Выполняет fn строго последовательно относительно других runExclusive.
+ * @param {string} label - Имя стадии (для лога ошибок)
+ * @param {Function} fn - Асинхронная функция стадии
+ * @returns {Promise} Завершение именно этой fn (ошибки пробрасываются вызывающему)
+ */
+export function runExclusive(label, fn) {
+  const result = cacheQueue.then(() => fn());
+  // цепочка живёт дальше даже после упавшей стадии
+  cacheQueue = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
 /**
  * SHA-1 хеш содержимого файла (стримом — не грузим файл в память целиком)
  * @param {string} filePath - Путь к файлу
