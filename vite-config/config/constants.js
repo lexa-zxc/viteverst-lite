@@ -23,13 +23,13 @@ export const BUILD_SETTINGS = {
 };
 
 // Конфигурация оптимизации изображений (параметры sharp)
-// jpeg q80 и png pal90 — визуально прозрачные уровни (PSNR 40+ dB),
-// проходящие Lighthouse "Efficiently encode images".
-// Ниже png-качества не опускаться: на плавных градиентах в 256 цветах
-// появляется бандинг (проверено замерами: q80 — PSNR 38.8, q90 — 40.1).
+// Качество 90 везде — приоритет визуалу (решение после ручного теста).
+// Цена против q80: +35–50% веса, Lighthouse "Efficiently encode images"
+// может помечать крупные фото. Ниже png-качества не опускаться: на плавных
+// градиентах в 256 цветах появляется бандинг (q80 — PSNR 38.8, q90 — 40.1).
 export const IMAGE_OPTIMIZATION = {
   jpeg: {
-    quality: 80,
+    quality: 90,
     mozjpeg: true // тот же кодек mozjpeg, что был в imagemin
   },
   png: {
@@ -38,7 +38,7 @@ export const IMAGE_OPTIMIZATION = {
     compressionLevel: 9
   },
   webp: {
-    quality: 80,
+    quality: 90,
     // libwebp -sharp_yuv: честная цветовая половина разрешения.
     // Без него 4:2:0 давит хрому — тонкий текст плывёт, на плоских
     // заливках мозаика (замерено на баннере: вес +3.6%, PSNR +0.5 dB,
