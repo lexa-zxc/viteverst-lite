@@ -180,15 +180,22 @@ export function transformBuildHtml(html, opts = {}) {
 function wrapImagesWithPicture(root, twinExists) {
   root.querySelectorAll('img').forEach((img) => {
     const src = img.getAttribute('src') || '';
-    if (!/^img\/.+\.(jpe?g|png)$/i.test(src)) return;
+
+    // src приходит в двух видах: `img/...` (после @img-алиаса) и `/img/...`
+    // (vite:build-html переписывает прямые пути в корневые) — нормализуем
+    const normalized =
+      src.startsWith('/') && !src.startsWith('//') ? src.slice(1) : src;
+
+    if (!/^img\/.+\.(jpe?g|png)$/i.test(normalized)) return;
     if (img.hasAttribute('srcset') || img.hasAttribute('data-src')) return;
 
     const parentTag = (img.parentNode?.rawTagName || '').toLowerCase();
     if (parentTag === 'picture') return;
 
-    if (!twinExists(src)) return;
+    if (!twinExists(normalized)) return;
 
-    const webpSrc = src.replace(/\.(jpe?g|png)$/i, '.webp');
+    const webpSrc = normalized.replace(/\.(jpe?g|png)$/i, '.webp');
+    img.setAttribute('src', normalized);
     const pictureHtml =
       `<picture><source srcset="${webpSrc}" type="image/webp">${img.outerHTML}</picture>`;
     img.replaceWith(parse(pictureHtml).firstChild);
@@ -232,8 +239,10 @@ function resolveAliasUrl(url, aliases) {
   return base ? `${base}/${rest}` : url;
 }
 
-/** Убирает ведущий `/` (абсолютный корень → относительный путь) */
+/** Убирает ведущий `/` (абсолютный корень → относительный путь).
+ *  Протокол-относительные `//host/path` не трогаем — иначе ломаются. */
 function stripLeadingSlash(url) {
+  if (url.startsWith('//')) return url;
   return url.startsWith('/') ? url.slice(1) : url;
 }
 
