@@ -154,20 +154,9 @@ export async function imageOptimizationPlugin() {
           totalOptimizedSize += img.newSize;
         });
 
-        // Выводим статистику оптимизации
+        // Выводим общую статистику оптимизации
         if (optimizedImages.length > 0) {
           console.log(`\n${CONSOLE_COLORS.green}----- Статистика оптимизации -----${CONSOLE_COLORS.reset}`);
-
-          // Информация по каждому изображению
-          optimizedImages.forEach((img) => {
-            const originalSizeFormatted = formatFileSize(img.originalSize);
-            const newSizeFormatted = formatFileSize(img.newSize);
-            const arrowColor = img.compressionPercent >= 10 ? CONSOLE_COLORS.green : CONSOLE_COLORS.yellow;
-
-            console.log(
-              `${CONSOLE_COLORS.cyan}${img.name}${CONSOLE_COLORS.reset}: ${originalSizeFormatted} ${arrowColor}→${CONSOLE_COLORS.reset} ${newSizeFormatted} (${CONSOLE_COLORS.green}-${img.compressionPercent}%${CONSOLE_COLORS.reset})`
-            );
-          });
 
           // Общая статистика
           const totalSaved = totalOriginalSize - totalOptimizedSize;
