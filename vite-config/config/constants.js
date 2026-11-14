@@ -23,13 +23,17 @@ export const BUILD_SETTINGS = {
 };
 
 // Конфигурация оптимизации изображений (параметры sharp)
+// Подобрано по замерам вес/PSNR + визуальной сверке (npm run img:test):
+// jpeg q80 и png pal90 — визуально прозрачные уровни, проходящие
+// Lighthouse "Efficiently encode images". Ниже png-качества не опускаться:
+// на градиентах в 256 цветах появляется бандинг.
 export const IMAGE_OPTIMIZATION = {
   jpeg: {
     quality: 80,
     mozjpeg: true // тот же кодек mozjpeg, что был в imagemin
   },
   png: {
-    quality: 80,
+    quality: 90, // 80 даёт бандинг на плавных градиентах (замер: PSNR 38.8 → 40.1)
     palette: true, // квантизация до 256 цветов (аналог pngquant)
     compressionLevel: 9
   },
