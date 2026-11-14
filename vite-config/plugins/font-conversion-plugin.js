@@ -1,6 +1,6 @@
 /**
- * Плагин для конвертации шрифтов TTF в WOFF2
- * Использует библиотеку ttf2woff2 для конвертации
+ * Конвертация шрифтов TTF → WOFF2 через библиотеку ttf2woff2.
+ * Используется скриптом vite-config/scripts/convert-fonts.js (npm run fonts).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -43,7 +43,7 @@ async function fileExists(filePath) {
 /**
  * Конвертирует TTF файлы в WOFF2
  * @param {Object} options - Опции конвертации
- * @param {string} options.fontsDir - Путь к директории с шрифтами
+ * @param {string} options.fontsDir - Путь к директории со шрифтами
  * @param {boolean} options.force - Принудительно пересоздавать WOFF2 файлы, даже если они уже существуют
  * @returns {Promise<{success: boolean, message: string, convertedFonts?: string[]}>} Результат операции
  */
@@ -77,7 +77,9 @@ export async function convertFonts({
     // Обрабатываем каждый TTF файл
     for (const ttfFile of ttfFiles) {
       const sourceTtfPath = path.join(fontsDir, ttfFile);
-      const fontName = path.basename(ttfFile, '.ttf');
+      // basename(file, '.ttf') не срезает '.TTF' в верхнем регистре
+      // (фильтр выше case-insensitive) — срезаем фактическое расширение
+      const fontName = ttfFile.slice(0, -path.extname(ttfFile).length);
       const targetWoff2Path = path.join(fontsDir, `${fontName}.woff2`);
       
       // Проверяем, нужно ли конвертировать файл
@@ -119,36 +121,9 @@ export async function convertFonts({
       };
     }
   } catch (error) {
-    return { 
-      success: false, 
-      message: `Ошибка при конвертации шрифтов: ${error.message}` 
+    return {
+      success: false,
+      message: `Ошибка при конвертации шрифтов: ${error.message}`
     };
   }
 }
-
-/**
- * Создаёт Vite плагин для конвертации шрифтов
- * @param {Object} options - Опции плагина
- * @returns {Object} Vite плагин
- */
-export function fontConversionPlugin(options = {}) {
-  return {
-    name: 'vite-plugin-font-conversion',
-    enforce: 'pre',
-    
-    async buildStart() {
-      const result = await convertFonts(options);
-      console.log(`[Font Conversion] ${result.message}`);
-      
-      if (result.success && result.convertedFonts && result.convertedFonts.length > 0) {
-        console.log(`[Font Conversion] Сконвертированные шрифты: ${result.convertedFonts.join(', ')}`);
-      }
-      
-      if (result.success && result.skippedFonts && result.skippedFonts.length > 0) {
-        console.log(`[Font Conversion] Пропущенные шрифты: ${result.skippedFonts.join(', ')}`);
-      }
-    }
-  };
-}
-
-export default fontConversionPlugin; 
