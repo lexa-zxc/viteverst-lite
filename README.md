@@ -15,12 +15,13 @@
 
 ## Что отличается от полной версии
 
-- SCSS разбит на профильные файлы (`_base`, `_typography`, `_buttons`, `_forms`, `_animations`, `_vendor-overrides` и т.д.)
-- Все переменные — CSS Custom Properties (`:root`), SCSS-переменных в проекте нет
-- Оптимизация изображений на **sharp** с файловым кешем и webp-дублями (`--webp`)
-- Работает на **Vite 8** (Rolldown-бандлер)
-- `app.js` очищен до стартового шаблона с заготовками под fancybox, swiper, smooth-scroll
-- Демо-страница `demo.html` показывает все базовые компоненты (кнопки, формы, чекбоксы, WOW-анимации)
+- SCSS разбит на профильные файлы (`_base`, `_variables`, `_fonts`, `_typography`, `_buttons`, `_forms`, `_animations`, `_vendor-overrides` и т.д. — в полной такого разбиения нет)
+- Все переменные — CSS Custom Properties (`:root`) в `_variables.scss`, SCSS-переменных в проекте нет
+- Больше готовых vendor-либ под типовые заказы: swiper, fancybox, choices, air-datepicker, ion-range-slider, phone-mask, vanilla-lazyload и др. (в полной — только fls, gsap, jquery, rem, split-text)
+- Оптимизация изображений на **sharp** с файловым кешем и webp-дублями (`--webp`) — в полной до сих пор imagemin
+- Работает на **Vite 8** (Rolldown-бандлер) — полная осталась на Vite 6.3
+- `app.js` очищен до стартового шаблона с заготовками под fancybox, swiper, smooth-scroll (вырезан js/utils)
+- Демо-страница `demo.html` показывает все базовые компоненты — кнопки, формы, чекбоксы, WOW-анимации и webp (в полной — about/rem/test-slots)
 - Cборка работает **так же быстро**, всё из коробки: `@@include`, слоты, алиасы, мультистраничность
 
 Полный гайд по сборке и конвенциям (SCSS, @@include, DynamicAdapt, правила проекта): **[GUIDE.md](GUIDE.md)**
