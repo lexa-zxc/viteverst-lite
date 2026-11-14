@@ -1,6 +1,6 @@
 # ⚡ ViteVerst Lite
 
-![Vite](https://img.shields.io/badge/Vite-6.3-purple?style=flat-square&logo=vite)
+![Vite](https://img.shields.io/badge/Vite-8-purple?style=flat-square&logo=vite)
 ![SCSS](https://img.shields.io/badge/SCSS-Support-pink?style=flat-square&logo=sass)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
 
@@ -14,7 +14,8 @@
 
 - SCSS разбит на профильные файлы (`_base`, `_typography`, `_buttons`, `_forms`, `_animations`, `_vendor-overrides` и т.д.)
 - Все переменные — CSS Custom Properties (`:root`), SCSS-переменных в проекте нет
-- Оптимизация изображений на **sharp** с файловым кешем (холодный билд сжимает и запоминает, тёплый берёт из кеша за доли секунды)
+- Оптимизация изображений на **sharp** с файловым кешем и webp-дублями (`--webp`)
+- Работает на **Vite 8** (Rolldown-бандлер)
 - `app.js` очищен до стартового шаблона с заготовками под fancybox, swiper, smooth-scroll
 - Демо-страница `demo.html` показывает все базовые компоненты (кнопки, формы, чекбоксы, WOW-анимации)
 - Cборка работает **так же быстро**, всё из коробки: `@@include`, слоты, алиасы, мультистраничность
@@ -41,25 +42,6 @@ build-min  # сборка с минификацией и оптимизацие�
 preview    # предпросмотр
 fonts      # ttf → woff2
 ```
-
----
-
-## Оптимизация изображений
-
-Сжатие на sharp: mozjpeg q85 для jpg, q85 (smartSubsample) для webp, палитра
-q90 для png — уровни подобраны по замерам веса/качества. Параметры —
-`IMAGE_OPTIMIZATION` в `vite-config/config/constants.js`.
-
-- `npm run build` — сжимает картинки (тумблер `optimizeImages` в `BUILD_SETTINGS`)
-- `npm run build-min` — сжимает всегда
-- `npm run build --webp` — плюс webp-дубли: `<img>` оборачивается в `<picture>`
-  с jpg-фолбэком, для CSS-фонов генерируются `.is-webp` правила, в `<head>`
-  вставляется webp-детект. В верстке и SCSS ничего писать не нужно
-- Первый билд складывает сжатые файлы в кеш `.cache/` (в git не попадает),
-  дальше тёплые билды подменяют картинки из него за доли секунды.
-  Смена настроек или обновление sharp — кеш протухает сам: один холодный
-  прогон и снова быстро
-- `OPTIMIZE=true/false` перед командой — принудительно вкл/выкл поверх всего
 
 ---
 
