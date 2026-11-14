@@ -1,8 +1,19 @@
 import fs from 'fs';
+import { createHash } from 'crypto';
 import { join, extname, basename } from 'path';
 import { PATHS } from '../config/paths.js';
 import { findAllImages, formatFileSize } from '../utils/fs-utils.js';
 import { CONSOLE_COLORS, IMAGE_OPTIMIZATION } from '../config/constants.js';
+
+/**
+ * Директория кеша оптимизации изображений.
+ * Папка .cache уже в .gitignore — в git не попадёт.
+ * Структура:
+ *   .cache/optimize-images/
+ *   ├── cache.json   — карта: hash(содержимое) → расширение
+ *   └── store/       — сжатые результаты, имена = hash + расширение
+ */
+const CACHE_DIR = join(process.cwd(), '.cache', 'optimize-images');
 
 /**
  * Возвращает функцию-кодировщик sharp для файла по его расширению
@@ -26,8 +37,70 @@ function getEncoder(ext) {
 }
 
 /**
+ * SHA-1 хеш содержимого файла (стримом — не грузим файл в память целиком)
+ * @param {string} filePath - Путь к файлу
+ * @returns {Promise<string>} Хеш
+ */
+function fileHash(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha1');
+    fs.createReadStream(filePath)
+      .on('data', (chunk) => hash.update(chunk))
+      .on('end', () => resolve(hash.digest('hex')))
+      .on('error', reject);
+  });
+}
+
+/**
+ * Версия настроек: хеш конфига sharp + версии самой sharp.
+ * Меняется при любой правке IMAGE_OPTIMIZATION или обновлении sharp —
+ * кеш с прошлыми настройками считается недействительным.
+ * @param {string} sharpVersion - Версия sharp
+ * @returns {string} Короткий хеш
+ */
+function getSettingsVersion(sharpVersion) {
+  return createHash('sha1')
+    .update(JSON.stringify(IMAGE_OPTIMIZATION) + sharpVersion)
+    .digest('hex')
+    .slice(0, 12);
+}
+
+/**
+ * Загрузка кеша. Если настроек нет / кеш битый / настройки изменились —
+ * стор стирается и начинаем с нуля.
+ * @param {string} settingsVersion - Текущая версия настроек
+ * @returns {Object} Кеш вида { settings, entries: { hash: ext } }
+ */
+function loadCache(settingsVersion) {
+  try {
+    const cachePath = join(CACHE_DIR, 'cache.json');
+    if (fs.existsSync(cachePath)) {
+      const cache = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+      if (cache && cache.settings === settingsVersion) {
+        return cache;
+      }
+    }
+  } catch {
+    // Битый cache.json — начнём с чистого кеша
+  }
+
+  // Настроения/версия изменились или кеша не было — стор неактуален
+  fs.rmSync(join(CACHE_DIR, 'store'), { recursive: true, force: true });
+  return { settings: settingsVersion, entries: {} };
+}
+
+/**
+ * Сохранение кеша на диск
+ * @param {Object} cache - Кеш вида { settings, entries }
+ */
+function saveCache(cache) {
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
+  fs.writeFileSync(join(CACHE_DIR, 'cache.json'), JSON.stringify(cache, null, 2));
+}
+
+/**
  * Запись файла с ретраями — на Windows антивирус/индексатор могут
- * держать свежескопированный файл пару мгновений (EPERM / UNKNOWN)
+ * держать свежезаписанный файл пару мгновений (EPERM / UNKNOWN)
  * @param {string} filePath - Путь к файлу
  * @param {Buffer} data - Данные для записи
  */
@@ -45,12 +118,20 @@ async function writeFileWithRetry(filePath, data) {
 }
 
 /**
- * Оптимизация одного изображения через sharp
+ * Обработка одного изображения:
+ *   - хеш-промах → сжатие sharp + сохранение результата в стор
+ *   - хеш-хит    → восстановление готового файла из стора (мс вместо секунд)
+ *
+ * Важно: «скипать» нельзя — dist каждый раз собирается из сырых оригиналов,
+ * поэтому хит подменяет свежескопированный оригинал сжатой версией из стора.
+ *
  * @param {import('sharp').Sharp} sharp - Экземпляр sharp
  * @param {string} imagePath - Путь к изображению в dist
- * @returns {Object} Результат оптимизации
+ * @param {Object} cache - Загруженный кеш (мутируется: добавляются новые записи)
+ * @param {Set<string>} usedHashes - Хеши, использованные в этом прогоне (для чистки кеша)
+ * @returns {Object} Результат обработки
  */
-async function optimizeImage(sharp, imagePath) {
+async function processImage(sharp, imagePath, cache, usedHashes) {
   const imageExt = extname(imagePath).toLowerCase();
   const encode = getEncoder(imageExt);
 
@@ -60,6 +141,31 @@ async function optimizeImage(sharp, imagePath) {
   }
 
   try {
+    const name = basename(imagePath);
+    const contentHash = await fileHash(imagePath);
+    usedHashes.add(contentHash);
+
+    //=== Хит: восстанавливаем сжатую версию из стора ===//
+    const cachedExt = cache.entries[contentHash];
+    if (cachedExt) {
+      const storeFile = join(CACHE_DIR, 'store', contentHash + cachedExt);
+      if (fs.existsSync(storeFile)) {
+        const originalSize = fs.statSync(imagePath).size; // до перезаписи!
+        const cachedBuffer = fs.readFileSync(storeFile);
+        await writeFileWithRetry(imagePath, cachedBuffer);
+        return {
+          path: imagePath,
+          name,
+          originalSize,
+          newSize: cachedBuffer.length,
+          compressionPercent: Math.round((1 - cachedBuffer.length / originalSize) * 100),
+          fromCache: true,
+          success: true
+        };
+      }
+    }
+
+    //=== Промах: сжимаем заново и кладём в стор ===//
     const originalSize = fs.statSync(imagePath).size;
 
     // Для GIF обрабатываем все кадры, иначе анимация схлопнется в первый кадр
@@ -72,14 +178,17 @@ async function optimizeImage(sharp, imagePath) {
     const optimizedBuffer = await encode(sharp(inputBuffer, readOptions)).toBuffer();
     await writeFileWithRetry(imagePath, optimizedBuffer);
 
-    const newSize = fs.statSync(imagePath).size;
+    // Сохраняем результат в стор кеша
+    fs.mkdirSync(join(CACHE_DIR, 'store'), { recursive: true });
+    fs.writeFileSync(join(CACHE_DIR, 'store', contentHash + imageExt), optimizedBuffer);
+    cache.entries[contentHash] = imageExt;
 
     return {
       path: imagePath,
-      name: basename(imagePath),
+      name,
       originalSize,
-      newSize,
-      compressionPercent: Math.round((1 - newSize / originalSize) * 100),
+      newSize: optimizedBuffer.length,
+      compressionPercent: Math.round((1 - optimizedBuffer.length / originalSize) * 100),
       success: true
     };
   } catch (error) {
@@ -89,7 +198,7 @@ async function optimizeImage(sharp, imagePath) {
 }
 
 /**
- * Плагин для оптимизации изображений
+ * Плагин для оптимизации изображений с файловым кешем
  * @returns {Object} Vite плагин
  */
 export async function imageOptimizationPlugin() {
@@ -115,6 +224,11 @@ export async function imageOptimizationPlugin() {
         // Загружаем sharp лениво — только когда оптимизация реально нужна
         const sharp = (await import('sharp')).default;
 
+        // Кеш: валиден пока не менялись настройки и версия sharp
+        const settingsVersion = getSettingsVersion(sharp.versions.sharp);
+        const cache = loadCache(settingsVersion);
+        const usedHashes = new Set();
+
         console.log(`${CONSOLE_COLORS.cyan}Найдено изображений для оптимизации: ${allImages.length}${CONSOLE_COLORS.reset}`);
 
         // Счетчики для отображения прогресса
@@ -132,7 +246,7 @@ export async function imageOptimizationPlugin() {
         // поэтому запускаем все файлы сразу — лишние задачи встают в очередь
         const results = await Promise.all(
           allImages.map(async (imagePath) => {
-            const result = await optimizeImage(sharp, imagePath);
+            const result = await processImage(sharp, imagePath, cache, usedHashes);
             updateProgress();
             return result;
           })
@@ -140,8 +254,15 @@ export async function imageOptimizationPlugin() {
 
         console.log('\n'); // Новая строка после прогресс-бара
 
+        // Чистим кеш от записей, которые не встретились в этом прогоне
+        for (const hash of Object.keys(cache.entries)) {
+          if (!usedHashes.has(hash)) delete cache.entries[hash];
+        }
+        saveCache(cache);
+
         // Фильтруем результаты
         const optimizedImages = results.filter(r => r && r.success && !r.skipped);
+        const fromCacheCount = optimizedImages.filter(r => r.fromCache).length;
         const skippedImages = results.filter(r => r && r.skipped);
         const failedImages = results.filter(r => !r || r.error);
 
@@ -166,6 +287,10 @@ export async function imageOptimizationPlugin() {
             `\n${CONSOLE_COLORS.cyan}Общая экономия:${CONSOLE_COLORS.reset} ${formatFileSize(totalSaved)} (${CONSOLE_COLORS.green}-${totalPercent}%${CONSOLE_COLORS.reset})`
           );
           console.log(`${CONSOLE_COLORS.cyan}Успешно оптимизировано:${CONSOLE_COLORS.reset} ${optimizedImages.length}`);
+
+          if (fromCacheCount > 0) {
+            console.log(`${CONSOLE_COLORS.cyan}Взято из кеша:${CONSOLE_COLORS.reset} ${fromCacheCount}`);
+          }
 
           if (skippedImages.length > 0) {
             console.log(`${CONSOLE_COLORS.cyan}Пропущено (не требуется оптимизация):${CONSOLE_COLORS.reset} ${skippedImages.length}`);
