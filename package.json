@@ -10,8 +10,7 @@
     "build-min": "vite build --mode production-min",
     "preview": "vite preview --open --host",
     "fonts": "fonts.bat",
-    "fonts:convert": "node vite-config/scripts/convert-fonts.js",
-    "img:test": "node vite-config/scripts/test-image-settings.mjs"
+    "fonts:convert": "node vite-config/scripts/convert-fonts.js"
   },
   "keywords": [
     "vite",
