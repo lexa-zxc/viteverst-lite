@@ -1,0 +1,12 @@
+//--------------------------------------------------------------------
+// demo.html — страница демо компонентов
+//--------------------------------------------------------------------
+
+// Фон для теста webp-пайплайна: на билде --webp получит .is-webp дубль
+.demo-webp-bg {
+  min-height: 32rem;
+  border-radius: 2rem;
+  background-image: url("@img/viteverst-demo.jpg");
+  background-size: cover;
+  background-position: center;
+}

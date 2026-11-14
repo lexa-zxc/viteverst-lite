@@ -98,6 +98,23 @@
     </div>
   </section>
 
+  <!-- WebP (build --webp) -->
+  <section style="margin-top: 6rem;">
+    <h2 class="h2">WebP</h2>
+    <p style="margin-top: 2rem;">
+      Собери с <code>npm run build --webp</code> — <code>&lt;img&gt;</code>
+      обернётся в <code>&lt;picture&gt;</code> с jpg-фолбэком,
+      а фон получит правило <code>.is-webp</code>.
+      Браузер без webp увидит тот же jpg.
+    </p>
+    <img src="@img/viteverst-demo.jpg" alt="ViteVerst lite" style="margin-top: 3rem; width: 100%; border-radius: 2rem;">
+    <div class="demo-webp-bg" style="margin-top: 3rem;"></div>
+    <p style="margin-top: 1.5rem;">
+      Фон выше — та же картинка через CSS: <code>url("@img/viteverst-demo.jpg")</code>.
+      Проверь в devtools: с <code>.is-webp</code> грузится <code>.webp</code>, без него — jpg.
+    </p>
+  </section>
+
   <!-- Тестирование data-da -->
   <div class="test-data-da-mobile"></div>
 
