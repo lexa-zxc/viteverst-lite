@@ -18,7 +18,9 @@ export function createBuildConfig(minify = false, plugins = []) {
       outDir: '../dist',
       emptyOutDir: true,
       manifest: false,
-      minify: minify ? 'esbuild' : false,
+      // Vite 8: дефолтный минификатор — Oxc (esbuild выпилен из ядра,
+      // 'esbuild' здесь больше не работает без отдельной зависимости)
+      minify: minify,
       rollupOptions: {
         input: buildInputConfig(),
         output: buildOutputConfig(),
