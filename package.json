@@ -7,6 +7,11 @@
   "engines": {
     "node": ">=18.17.0"
   },
+  "overrides": {
+    "vite-plugin-sass-glob-import": {
+      "vite": "$vite"
+    }
+  },
   "scripts": {
     "dev": "vite --open --host",
     "build": "node vite-config/scripts/vite-cli.js build --mode production",
