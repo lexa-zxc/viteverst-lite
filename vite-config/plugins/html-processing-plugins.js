@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { resolve, join } from 'path';
-import { PATHS, SCSS_ALIASES } from '../config/paths.js';
+import { PATHS, SCSS_ALIASES, HTML_ALIASES } from '../config/paths.js';
 import { transformBuildHtml } from '../utils/html-transform.js';
 import { normalizeCssAssetUrls } from '../utils/css-transform.js';
 import { CONSOLE_COLORS } from '../config/constants.js';
@@ -51,7 +51,7 @@ export function normalizeCssPathsPlugin() {
  *   - удаляет crossorigin, type="module"
  *   - подменяет script/link на фиксированные пути (js/app.js, css/app.css)
  *   - убирает префикс ./ из src/href
- *   - убирает ведущий / (абсолютные пути → относительные)
+ *   - нормализует url() в inline-стилях (@алиасы и ведущий / → относительный путь)
  *
  * Работает на AST через node-html-parser — вся логика в utils/html-transform.js
  *
@@ -74,7 +74,7 @@ export function processHtmlPlugin() {
         htmlFiles.forEach((htmlFile) => {
           const htmlPath = resolve(PATHS.dist, htmlFile);
           const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
-          const result = transformBuildHtml(htmlContent);
+          const result = transformBuildHtml(htmlContent, { aliases: HTML_ALIASES });
           fs.writeFileSync(htmlPath, result);
         });
 

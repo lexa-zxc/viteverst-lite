@@ -101,15 +101,22 @@ export function transformAliases(html, aliases) {
  *   - удаляет crossorigin, type="module"
  *   - подменяет script/link на фиксированные пути (js/app.js, css/app.css)
  *   - убирает префикс ./ из src/href
+ *   - нормализует url() в inline-стилях (@алиасы и ведущий / → относительный путь)
  *   - с opts.webp: оборачивает <img src="img/*.jpg|png"> в <picture> с webp-source
  *     и вставляет синхронный webp-детект в <head>
  *
+ * Inline-стили критичны: Vite извлекает содержимое style="...url(...)..." в
+ * виртуальный CSS-модуль ещё на этапе transform и подставляет обработанный
+ * CSS обратно ПОСЛЕ всех transformIndexHtml-хуков. url() там уже переписан в
+ * корневой /img/... — эта функция единственное место, где слеш ещё можно убрать.
+ *
  * @param {string} html
- * @param {Object} opts - { webp?: (src) => boolean } — проверка наличия webp-дубля
+ * @param {Object} opts - { webp?: (src) => boolean, aliases?: Object<string,string> }
  * @returns {string}
  */
 export function transformBuildHtml(html, opts = {}) {
   const root = parseHtml(html);
+  const aliases = opts.aliases || {};
 
   // <script> обработка
   root.querySelectorAll('script[src]').forEach((el) => {
@@ -150,6 +157,22 @@ export function transformBuildHtml(html, opts = {}) {
       const stripped = stripDotSlash(value);
       if (stripped !== value) el.setAttribute(attr, stripped);
     });
+  });
+
+  // Inline-стили: url(/img/...) → url(img/...), url(@img/...) → url(img/...)
+  root.querySelectorAll('[style]').forEach((el) => {
+    const style = el.getAttribute('style');
+    if (!style || !style.includes('url(')) return;
+
+    const newStyle = style.replace(
+      /url\((['"]?)([^'")]+)\1\)/g,
+      (_, quote, url) => {
+        const resolved = stripLeadingSlash(stripDotSlash(resolveAliasUrl(url, aliases)));
+        return `url(${quote}${resolved}${quote})`;
+      }
+    );
+
+    if (newStyle !== style) el.setAttribute('style', newStyle);
   });
 
   if (typeof opts.webp === 'function') {

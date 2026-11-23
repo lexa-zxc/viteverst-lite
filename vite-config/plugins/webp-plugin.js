@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { join, basename } from 'path';
-import { PATHS } from '../config/paths.js';
+import { PATHS, HTML_ALIASES } from '../config/paths.js';
 import { findAllImages } from '../utils/fs-utils.js';
 import { CONSOLE_COLORS, IMAGE_OPTIMIZATION } from '../config/constants.js';
 import {
@@ -215,7 +215,7 @@ export function webpPipelinePlugin() {
         htmlFiles.forEach((htmlFile) => {
           const htmlPath = join(PATHS.dist, htmlFile);
           const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
-          const result = transformBuildHtml(htmlContent, { webp: twinExists });
+          const result = transformBuildHtml(htmlContent, { webp: twinExists, aliases: HTML_ALIASES });
           fs.writeFileSync(htmlPath, result);
         });
 
